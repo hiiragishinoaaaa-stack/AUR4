@@ -157,7 +157,7 @@ input[type=color]{width:40px;height:30px;border:0;background:none;padding:0}
 <input type="file" id="fBk" accept=".aura,application/octet-stream,*/*" hidden>
 <input type="file" id="fReplace" accept="image/*,video/*" hidden>
 <script type="x-shader/x-fragment" id="sh-head">
-varying vec2 uv;uniform sampler2D A;uniform sampler2D B;uniform float p;uniform float ar;uniform float amt;uniform float seed;uniform vec2 v;uniform float rgb;uniform vec2 res;
+varying vec2 uv;uniform sampler2D A;uniform sampler2D B;uniform float p;uniform float ar;uniform float amt;uniform float seed;uniform vec2 v;uniform float rgb;uniform vec2 res;uniform vec4 wq;
 vec4 tA(vec2 q){if(q.x<0.||q.y<0.||q.x>1.||q.y>1.)return vec4(0.);return texture2D(A,q);}
 vec4 tB(vec2 q){if(q.x<0.||q.y<0.||q.x>1.||q.y>1.)return vec4(0.);return texture2D(B,q);}
 vec2 mir(vec2 q){return 1.-abs(1.-mod(q,2.));}
@@ -179,6 +179,7 @@ vec4 pinchB(vec2 c,float pb){float eo=1.-pow(1.-pb,3.);return tB(toU(c/(1.+.06*(
 float vn(vec2 x){vec2 i=floor(x);vec2 f=fract(x);f=f*f*(3.-2.*f);float a=hash(i.x+i.y*57.);float b=hash(i.x+1.+i.y*57.);float c=hash(i.x+(i.y+1.)*57.);float d=hash(i.x+1.+(i.y+1.)*57.);return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
 float lumA(vec2 q){return dot(texture2D(A,clamp(q,0.,1.)).rgb,vec3(.299,.587,.114));}
 vec2 sqw(vec2 c,float k){float r=pow(pow(abs(c.x),4.)+pow(abs(c.y),4.),.25);if(r<.0001)return c;return c*pow(r,-k);}
+vec2 sqwR(vec2 c,float k,float R,float n){float r=(n>1.5&&n<2.5)?length(c):pow(pow(abs(c.x),4.)+pow(abs(c.y),4.),.25);float rr=max(r,R);if(rr<.0001)return c;return c*pow(rr,-k);}
 </script>
 <script type="x-shader/x-fragment" id="sh-suck">
 void main(){vec2 c=toC(uv);float r=length(c);
@@ -370,15 +371,15 @@ void main(){vec2 q=uv+vec2(sin(uv.y*16.+seed*.25)*.012,cos(uv.x*12.+seed*.2)*.00
 </script>
 
 <script type="x-shader/x-fragment" id="sh-dent">
-void main(){vec2 c=uv*2.-1.;vec2 q=sqw(c,clamp(amt,-.85,.85))*.5+.5;gl_FragColor=vec4(texture2D(A,clamp(q,0.,1.)).rgb,1.);}
+void main(){vec2 c=uv*2.-1.;vec2 q=sqwR(c,clamp(amt,-.85,.85),wq.x,wq.y)*.5+.5;gl_FragColor=vec4(texture2D(A,clamp(q,0.,1.)).rgb,1.);}
 </script>
 
 <script type="x-shader/x-fragment" id="sh-jikuu">
 void main(){vec2 c=uv*2.-1.;float e=1.-pow(1.-p,3.);float sB=mix(.3,1.,e);
  float ka=.75*smoothstep(0.,.45,p)*(1.-smoothstep(.55,1.,p))*amt;float za=sin(3.14159*min(p*1.4,1.));
- vec4 a=vec4(0.);for(int i=0;i<10;i++){float f=float(i)/9.;vec2 q=sqw(c,ka)*(1.-f*.3*za);a+=texture2D(A,clamp(q*.5+.5,0.,1.));}a/=10.;
+ vec4 a=vec4(0.);for(int i=0;i<10;i++){float f=float(i)/9.;vec2 q=sqwR(c,ka,wq.x,wq.y)*(1.-f*.3*za);a+=texture2D(A,clamp(q*.5+.5,0.,1.));}a/=10.;
  vec2 cb=c/sB;float m=1.-smoothstep(.985,1.,max(abs(cb.x),abs(cb.y)));vec4 b=vec4(0.);
- if(m>0.){float kb=-.65*(1.-e)*amt;for(int i=0;i<10;i++){float f=float(i)/9.;vec2 q=sqw(clamp(cb,-1.,1.),kb)*(1.-f*.16*(1.-e));b+=texture2D(B,clamp(q*.5+.5,0.,1.));}b/=10.;}
+ if(m>0.){float kb=-.65*(1.-e)*amt;for(int i=0;i<10;i++){float f=float(i)/9.;vec2 q=sqwR(clamp(cb,-1.,1.),kb,wq.x,wq.y)*(1.-f*.16*(1.-e));b+=texture2D(B,clamp(q*.5+.5,0.,1.));}b/=10.;}
  b.a*=m;gl_FragColor=over(b,a);}
 </script>
 <script type="x-shader/x-fragment" id="sh-sharpen">
@@ -389,21 +390,106 @@ void main(){vec2 o=1./res;vec3 c=texture2D(A,uv).rgb;
 </script>
 
 <script type="x-shader/x-fragment" id="sh-gather">
-vec4 gpc(vec2 q,float s,float rest,float mode){vec4 r=vec4(0.);
- for(int i=0;i<4;i++){float fi=float(i);if(mode<1.5&&i>1)break;
-  vec2 d;if(mode<.5)d=vec2(0.,fi<.5?-1.:1.);else if(mode<1.5)d=vec2(fi<.5?-1.:1.,0.);else d=vec2(mod(fi,2.)<.5?-1.:1.,fi<1.5?-1.:1.);
-  vec2 c=(q-.5-d*rest)/s+.5;if(c.x<0.||c.x>1.||c.y<0.||c.y>1.)continue;
-  bool okx=abs(d.x)<.5||((d.x<0.)==(c.x<.5));bool oky=abs(d.y)<.5||((d.y<0.)==(c.y<.5));
+vec4 gpc(vec2 q,float s,float rest,float mode,float rv){vec4 r=vec4(0.);bool four=mode>1.5&&mode<2.5;
+ for(int i=0;i<4;i++){float fi=float(i);if(!four&&i>1)break;float sg=fi<.5?-1.:1.;vec2 reg;vec2 d;
+  if(mode<.5){reg=vec2(0.,sg);d=vec2(0.,sg);}
+  else if(mode<1.5){reg=vec2(0.,sg);d=vec2(sg,0.);}
+  else if(mode<2.5){reg=vec2(mod(fi,2.)<.5?-1.:1.,fi<1.5?-1.:1.);d=reg;}
+  else if(mode<3.5){reg=vec2(sg,0.);d=vec2(sg,0.);}
+  else{reg=vec2(sg,0.);d=vec2(0.,sg);}
+  d*=rv;vec2 c=(q-.5-d*rest)/s+.5;if(c.x<0.||c.x>1.||c.y<0.||c.y>1.)continue;
+  bool okx=abs(reg.x)<.5||((reg.x<0.)==(c.x<.5));bool oky=abs(reg.y)<.5||((reg.y<0.)==(c.y<.5));
   if(okx&&oky)r=texture2D(B,c);}
  return r;}
-void main(){float mode=floor(v.x+.5);float s0=clamp(v.y,.12,.95);
- float q1=clamp(p/.42,0.,1.);float g=1.-pow(1.-q1,3.);float D=.62+.5*s0;float rest=(1.-g)*D;
- float q2=clamp((p-.5)/.5,0.,1.);float u=q2*q2*(3.-2.*q2);float k=1.2*amt;float x=u-1.;float e2=1.+(k+1.)*x*x*x+k*x*x;
- float s=mix(s0,1.,e2);
- float bl1=rgb*D*.6*pow(1.-q1,2.);float bl2=rgb*.4*sin(3.14159*q2);
- vec4 b=vec4(0.);for(int i=0;i<16;i++){float f=float(i)/15.;b+=gpc(uv,s*(1.-f*bl2),rest+f*bl1,mode);}b/=16.;
- vec2 c=toC(uv);vec4 a=mA(toU(c/(1.+.1*e2)));
- gl_FragColor=over(b,a);}
+void main(){float mode=floor(v.x+.5);float s0=clamp(v.y,.12,.95);float st=floor(wq.x+.5);float rv=wq.y>.5?-1.:1.;float gf=wq.z>.05?clamp(wq.z,.1,.8):.42;float hd=clamp(wq.w,0.,.4);
+ float q1=clamp(p/gf,0.,1.);float g=1.-pow(1.-q1,3.);float D=.62+.5*s0;float rest=(1.-g)*D;
+ float e0=min(.95,gf+hd);float q2=clamp((p-e0)/(1.-e0),0.,1.);float e2=0.;float vel=0.;
+ if(q2>0.){if(st<.5){e2=pow(q2,2.2);vel=pow(q2,1.2);}else if(st<1.5){e2=q2;vel=.7;}else if(st<2.5){e2=1.-pow(1.-q2,2.2);vel=pow(1.-q2,1.2);}
+  else{float u=q2*q2*(3.-2.*q2);float k=1.2*amt;float x=u-1.;e2=1.+(k+1.)*x*x*x+k*x*x;vel=sin(3.14159*q2);}}
+ if(q2>=1.)vel=0.;
+ float s=mix(s0,1.,e2);float bl1=rgb*D*.6*pow(1.-q1,2.);float bl2=rgb*.35*vel;
+ vec4 b=vec4(0.);for(int i=0;i<16;i++){float f=float(i)/15.;b+=gpc(uv,s*(1.+f*bl2),rest+f*bl1,mode,rv);}b/=16.;
+ vec2 c=toC(uv);vec4 a=mA(toU(c/(1.+.1*e2)));gl_FragColor=over(b,a);}
+</script>
+<script type="x-shader/x-fragment" id="sh-shape">
+float dot2(vec2 a){return dot(a,a);}
+float sdBox(vec2 p,vec2 b){vec2 d=abs(p)-b;return length(max(d,0.))+min(max(d.x,d.y),0.);}
+float sdStar(vec2 q,float r){vec2 k1=vec2(.809016994,-.587785252);vec2 k2=vec2(-.809016994,-.587785252);vec2 p=vec2(abs(q.x),-q.y);p-=2.*max(dot(k1,p),0.)*k1;p-=2.*max(dot(k2,p),0.)*k2;p.x=abs(p.x);p.y-=r;
+ vec2 ba=.45*vec2(-k1.y,k1.x)-vec2(0.,1.);float h=clamp(dot(p,ba)/dot(ba,ba),0.,r);return length(p-ba*h)*sign(p.y*ba.x-p.x*ba.y);}
+float sdHeart0(vec2 p){p.x=abs(p.x);if(p.y+p.x>1.)return sqrt(dot2(p-vec2(.25,.75)))-.353553;return sqrt(min(dot2(p-vec2(0.,1.)),dot2(p-.5*max(p.x+p.y,0.))))*sign(p.x-p.y);}
+float sdHeart(vec2 p,float r){float k=r*1.9;return sdHeart0(vec2(p.x,-p.y)/k+vec2(0.,.52))*k;}
+float sdHex(vec2 p,float r){vec3 k=vec3(-.866025404,.5,.577350269);p=abs(p);p-=2.*min(dot(k.xy,p),0.)*k.xy;p-=vec2(clamp(p.x,-k.z*r,k.z*r),r);return length(p)*sign(p.y);}
+float sdTri(vec2 q,float r){float k=1.7320508;vec2 p=vec2(abs(q.x)-r,-q.y+r/k);if(p.x+k*p.y>0.)p=vec2(p.x-k*p.y,-k*p.x-p.y)/2.;p.x-=clamp(p.x,-2.*r,0.);return -length(p)*sign(p.y);}
+float sdShape(float id,vec2 p,float r){
+ if(id<.5)return length(p)-r;
+ if(id<1.5)return sdBox(rot(p,.785398),vec2(r*.75));
+ if(id<2.5)return sdBox(p,vec2(r*.8));
+ if(id<3.5)return sdStar(p,r);
+ if(id<4.5)return sdHeart(p,r);
+ if(id<5.5)return sdHex(p,r);
+ if(id<6.5)return sdTri(p,r);
+ return min(sdBox(p,vec2(r,r*.34)),sdBox(p,vec2(r*.34,r)));}
+void main(){float id=floor(wq.x+.5);vec2 cc=toC(v);vec2 c=toC(uv);vec2 d0=c-cc;float e=eio(p);
+ float sf=.002+rgb*.05;vec4 a=tA(uv);float m;float ring=0.;vec4 b;
+ float dm=length(max(abs(toC(vec2(0.))-cc),abs(toC(vec2(1.))-cc)));
+ if(id>7.5){float n=7.;float cs=ar/n;vec2 g=floor(c/cs);vec2 gc=(g+.5)*cs;vec2 lc=c-gc;
+  float dn=clamp(length(gc-cc)/dm,0.,1.);float lp=clamp((p-dn*.5)/.5,0.,1.);float el=1.-pow(1.-lp,3.);float rr=el*cs;float d;
+  if(id<8.5)d=length(lc)-rr*.75;else if(id<9.5)d=sdBox(rot(lc,(1.-el)*1.5708),vec2(rr*.56));else d=sdBox(rot(lc,.785398+(1.-el)*1.5708),vec2(rr*.75));
+  m=1.-smoothstep(-sf,sf,d);if(lp<=0.)m=0.;if(lp>=1.)m=1.;b=tB(uv);}
+ else{float fac=id<.5?1.:id<1.5?1.36:id<2.5?1.27:id<3.5?2.5:id<4.5?2.4:id<5.5?1.04:id<6.5?1.8:3.;
+  float R=e*fac*dm*1.08+.0001;vec2 pq=rot(d0,wq.w*(1.-e)*3.14159);float d=sdShape(id,pq,R);
+  m=1.-smoothstep(-sf,sf,d);if(p<=0.)m=0.;
+  float bw=abs(wq.y)*.03*(1.-smoothstep(.7,1.,e))*step(.002,e);if(bw>0.)ring=1.-smoothstep(0.,.003+sf,abs(d-bw*.5)-bw*.5);
+  b=tB(toU(cc+d0/(1.+wq.z*(1.-e))));}
+ vec4 col=mix(a,b,m);col.rgb=mix(col.rgb,vec3(wq.y<0.?0.:1.),ring);col.a=max(col.a,ring);gl_FragColor=col;}
+</script>
+<script type="x-shader/x-fragment" id="sh-wipe">
+float hs(float n){return fract(sin(n)*43758.5453);}
+vec4 bBl(vec2 q,vec2 dir,float k){vec4 r=vec4(0.);for(int i=0;i<6;i++){float f=float(i)/5.-.5;r+=tB(q+dir*k*f);}return r/6.;}
+vec4 bBm(vec2 q,vec2 dir,float k){vec4 r=vec4(0.);for(int i=0;i<6;i++){float f=float(i)/5.-.5;r+=mB(q+dir*k*f);}return r/6.;}
+vec4 aBl(vec2 q,vec2 dir,float k){vec4 r=vec4(0.);for(int i=0;i<6;i++){float f=float(i)/5.-.5;r+=tA(q+dir*k*f);}return r/6.;}
+void main(){float mode=floor(wq.x+.5);vec2 c=toC(uv);float an=radians(v.x);vec2 dir=vec2(cos(an),sin(an));vec2 nr=vec2(-dir.y,dir.x);vec2 du=vec2(dir.x/ar,dir.y);
+ float ext=abs(dir.x)*ar*.5+abs(dir.y)*.5+.02;float lwA=abs(wq.y);vec3 lc=vec3(wq.y<0.?0.:1.);vec4 a=tA(uv);vec4 col;float line=0.;
+ if(mode<.5){float e=eio(p);float s=dot(c,dir);float ep=mix(-ext-.02,ext+.02,e);float m=1.-smoothstep(ep-.0015,ep+.0015,s);
+  vec4 b=bBm(toU(c+dir*(1.-e)*.1),du,rgb*.06*sin(3.14159*p));col=mix(a,b,m);float lw=lwA*.02*sin(3.14159*p);line=1.-smoothstep(lw*.5,lw*.5+.003,abs(s-ep));if(lw<.0005)line=0.;}
+ else if(mode<1.5){float n=max(2.,floor(v.y+.5));float ex2=abs(nr.x)*ar*.5+abs(nr.y)*.5;float t=dot(c,nr);float bi=floor(clamp((t+ex2)/(2.*ex2),0.,.9999)*n);float alt=mod(bi,2.)<.5?1.:-1.;
+  float lp=clamp((p-bi/n*.35)/.65,0.,1.);float e=eio(lp);float s=dot(c,dir)*alt;float ep=mix(-ext-.02,ext+.02,e);float m=1.-smoothstep(ep-.0015,ep+.0015,s);
+  vec4 b=bBm(toU(c+dir*alt*(1.-e)*.08),du,rgb*.05*sin(3.14159*lp));col=mix(a,b,m);float lw=lwA*.015*sin(3.14159*lp);line=1.-smoothstep(lw*.5,lw*.5+.003,abs(s-ep));if(lw<.0005)line=0.;}
+ else if(mode<2.5){float n=max(2.,floor(v.y+.5));float bi=floor(clamp(uv.y,0.,.9999)*n);float alt=mod(bi,2.)<.5?1.:-1.;float dl=hs(bi*7.31+3.)*.4;
+  float lp=clamp((p-dl)/.6,0.,1.);float e=1.-pow(1.-lp,4.);float off=alt*(1.-e)*1.05;vec4 b=lp>0.?bBl(uv-vec2(off,0.),vec2(1.,0.),rgb*.3*(1.-e)):vec4(0.);
+  col=over(b,a);
+  float edge=alt>0.?off:1.+off;float lw=lwA*.004*step(.001,lp)*step(lp,.98);line=lw>0.?1.-smoothstep(lw,lw+.002,abs(uv.x-edge)):0.;}
+ else if(mode<3.5){float e=eio(p);float ang=fract(atan(c.x,-c.y)/6.28318+1.);float m=1.-smoothstep(e-.002,e+.002,ang);if(e>=.999)m=1.;col=mix(a,tB(uv),m);
+  float lw=lwA*.012*sin(3.14159*p);float ad=abs(ang-e);ad=min(ad,1.-ad);line=lw>.0005?(1.-smoothstep(lw,lw+.004,ad*length(c)*6.28318)):0.;}
+ else if(mode<4.5){float e=eio(p);bool top=uv.y<.5;float off=e*.56;vec2 q=top?uv+vec2(0.,off):uv-vec2(0.,off);bool ok=top?q.y<.5:q.y>=.5;
+  vec4 aa=ok?aBl(q,vec2(0.,1.),rgb*.07*sin(3.14159*p)):vec4(0.);vec4 b=mB((uv-.5)/(1.+.2*(1.-e))+.5);col=over(aa,b);
+  float lw=lwA*.008*(1.-smoothstep(0.,.25,e));line=lw>.0005?step(.001,p)*(1.-smoothstep(lw,lw+.003,abs(uv.y-.5))):0.;}
+ else if(mode<5.5){float e=eio(p);float n=max(2.,floor(v.y+.5));float zz=abs(fract(uv.y*n)-.5)*2.*.12;float xe=mix(-.2,1.2,e);float m=1.-smoothstep(xe+zz-.002,xe+zz+.002,uv.x);
+  col=mix(a,tB(uv),m);float lw=lwA*.006*sin(3.14159*p);line=lw>.0005?1.-smoothstep(lw,lw+.003,abs(uv.x-xe-zz)):0.;}
+ else if(mode<6.5){float e=pow(p,1.3);vec2 qd=vec2(uv.x<.5?-1.:1.,uv.y<.5?-1.:1.);vec2 q=uv-qd*e*.75;bool ok=((q.x<.5)==(qd.x<0.))&&((q.y<.5)==(qd.y<0.));
+  vec4 aa=ok?aBl(q,normalize(qd),rgb*.06*sin(3.14159*p)):vec4(0.);vec4 b=mB((uv-.5)/(1.+.25*(1.-eio(p)))+.5);col=over(aa,b);}
+ else if(mode<7.5){vec2 L=dir;vec2 N=nr;float extL=ext+.05;float sl=dot(c,L);float sn=dot(c,N);
+  float lp=clamp(p/.3,0.,1.);float le=1.-pow(1.-lp,3.);float k=p>.3?eio((p-.3)/.7):0.;
+  float side=sn<0.?-1.:1.;vec2 disp=(N*side*.8+L*side*.45)*k;vec2 q=c-disp;bool ok=(dot(q,N)<0.?-1.:1.)==side;
+  vec4 aa=ok?tA(toU(q)):vec4(0.);aa.a*=1.-smoothstep(.8,1.,k);vec4 b=mB(toU(c/(1.+.15*(1.-k))));col=over(aa,b);
+  float lw=(lwA*.012+.003)*(1.-k);line=step(sl,mix(-extL,extL,le))*(1.-smoothstep(lw*.5,lw*.5+.003,abs(sn)))*step(.001,p)*(1.-smoothstep(.4,.85,k));
+  float fl=p>.3?exp(-(p-.3)*25.)*.55:0.;col.rgb=min(col.rgb+fl,1.);}
+ else{float e=eio(p);float bw2=.22;float s=dot(c,dir);float cp=mix(-ext-bw2,ext+bw2,e);float sm=.003+rgb*.04;
+  float mb=1.-smoothstep(cp-bw2*.5-sm,cp-bw2*.5+sm,s);float mbar=clamp((1.-smoothstep(cp+bw2*.5-sm,cp+bw2*.5+sm,s))-mb,0.,1.);
+  col=mix(a,tB(uv),mb);col.rgb=mix(col.rgb,lc,mbar*min(1.,lwA+.2));col.a=max(col.a,mbar);}
+ line=clamp(line,0.,1.);col.rgb=mix(col.rgb,lc,line);col.a=max(col.a,line);gl_FragColor=col;}
+</script>
+<script type="x-shader/x-fragment" id="sh-fadex">
+float lum3(vec3 c){return dot(c,vec3(.299,.587,.114));}
+void main(){float mode=floor(wq.x+.5);vec4 a=tA(uv);vec4 b=tB(uv);vec4 col;
+ if(mode<1.5){vec3 k=mode<.5?vec3(1.):vec3(0.);if(p<.5){float t=eio(p*2.);col=vec4(mix(a.rgb,k,t),1.);}else{float t=eio((p-.5)*2.);col=vec4(mix(k,b.rgb,t),1.);}}
+ else if(mode<2.5){float g=sin(3.14159*p);float mm=smoothstep(.3,.7,p);vec4 s=vec4(0.);for(int i=0;i<8;i++){float an=float(i)*.785398;vec2 o=vec2(cos(an),sin(an))*g*.012*amt;s+=mix(tA(uv+o),tB(uv+o),mm);}s/=8.;
+  vec4 base=mix(a,b,mm);col=mix(base,s,g*.6);col.rgb=1.-(1.-col.rgb)*(1.-col.rgb*g*.85*min(amt,1.5));}
+ else if(mode<3.5){float x=1.-lum3(b.rgb);float t=eio(p)*1.3;float m=1.-smoothstep(t-.3,t,x);col=mix(a,b,m);}
+ else if(mode<4.5){float e=eio(p);vec2 c=toC(uv);vec4 aa=mA(toU(c/(1.+.35*e*amt)));vec4 bb=mB(toU(c*(1.+.18*(1.-e)*amt)));col=mix(aa,bb,smoothstep(.2,.8,p));}
+ else if(mode<5.5){float an=radians(v.x);vec2 dir=vec2(cos(an),sin(an));vec2 c=toC(uv);float ext=abs(dir.x)*ar*.5+abs(dir.y)*.5;float s=(dot(c,dir)+ext)/(2.*ext);float t=eio(p)*1.4;float m=1.-smoothstep(t-.4,t,s);col=mix(a,b,m);}
+ else{float g=sin(3.14159*p)*.03*amt;float m=smoothstep(.35,.65,p);vec3 r;r.r=mix(tA(uv+vec2(g,0.)).r,tB(uv+vec2(g,0.)).r,m);r.g=mix(a.g,b.g,m);r.b=mix(tA(uv-vec2(g,0.)).b,tB(uv-vec2(g,0.)).b,m);col=vec4(r,1.);}
+ gl_FragColor=col;}
 </script>
 
 <script>
@@ -417,8 +503,8 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const EASE={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,expo:t=>t>=1?1:1-Math.pow(2,-10*t),hold:t=>t<1?0:1};
 const EASE_L=[["linear","一定"],["out","ゆっくり止まる"],["in","ゆっくり始まる"],["inout","なめらか"],["expo","急→ピタッ"],["hold","止めて切り替え"]];
 const RATIOS={"9:16":[9,16],"16:9":[16,9],"1:1":[1,1],"4:5":[4,5],"3:4":[3,4],"21:9":[21,9]};
-const TRANS=[["none","なし"],["fade","フェード"],["black","黒から"],["white","白フラッシュ"],["zoom","ズーム"],["zoomblur","ズームブラー"],["slide","スライド"],["spin","回転"],["blur","ぼかし"]];
-const PAIR=[["gather_ud","真ん中に集まって拡大（上下）"],["gather_lr","真ん中に集まって拡大（左右）"],["gather_4","真ん中に集まって拡大（4すみ）"],["glitchsuck","バグって吸い込み"],["jikuu","時空歪み"],["suck","吸い込み"],["splitsuck","割れて吸い込み"],["uzu","渦巻き"],["glitch","バグ切り替え"],["right","→ 右へ"],["left","← 左へ"],["up","↑ 上へ"],["down","↓ 下へ"],["zoomin","ズームで突き抜け"],["zoomout","ズームアウト"],["zoomwhip","ズームで流れる"],["shard","破片（三角割れ）"],["tri_fade","3分割（フェードで上から）"],["tri_fadev","縦3分割（フェード）"],["tri_down","3分割（上から）"],["tri_lr","3分割（左右から）"],["tri_up","3分割（下から）"],["tri_col","縦3分割"],["spinswap","回転"],["whiteflash","白フラッシュ"],["rgbflash","RGBフラッシュ"],["shakecut","シェイク切り替え"],["stretch","伸びる"],["pixel","ピクセル"],["wave","波打つ"],["circle","丸く広がる"],["flip","裏返し"],["blurx","ぼかし"],["door","ドアが開く"],["blinds","ブラインド"],["liquid","ぐにゃっと"],["burn","燃えて切り替え"],["tiles","タイルめくり"],["zoomspin","ズームスピン"],["echo","残像"],["dissolve","ドット消え"],["xfade","クロスフェード"]];
+const TRANS=[["none","なし"],["fade","フェード"],["black","黒から"],["white","白フラッシュ"],["zoom","ズーム"],["zoomblur","ズームブラー"],["slide","スライド"],["spin","回転"],["blur","ぼかし"],["pop","ぽんっと出る"],["drop","上から落ちてバウンド"],["rise","下からふわっ"],["slidel","左からスライド"],["whipin","しゅっと横から"],["bigzoom","大きく→ピタッ"],["spinpop","くるっと出る"],["flicker","チカチカ"]];
+const PAIR=[["gather_ud","真ん中に集まって拡大（上下）"],["gather_lr","真ん中に集まって拡大（左右）"],["gather_4","真ん中に集まって拡大（4すみ）"],["gather_lrv","真ん中に集まって拡大（縦割り・左右）"],["gather_udv","真ん中に集まって拡大（縦割り・上下）"],["shape_circle","円で拡大（真ん中から）"],["shape_diamond","ひし形で拡大"],["shape_square","四角で拡大"],["shape_star","星で拡大"],["shape_heart","ハートで拡大"],["shape_hex","六角形で拡大"],["shape_tri","三角で拡大"],["shape_cross","十字で拡大"],["shape_dots","水玉で切り替え"],["shape_grid","四角がパタパタ"],["shape_dgrid","ひし形がパタパタ"],["wipe_cut","斬撃（斬って割れる）"],["wipe_slash","斜めにシャキッ"],["wipe_stripe","斜めストライプ"],["wipe_slice","スライスでシャキシャキ"],["wipe_bar","バーで横切る"],["wipe_zigzag","ギザギザ"],["wipe_clock","時計回り"],["wipe_splith","上下に割れる"],["wipe_quad","4つに割れて飛ぶ"],["fade_white","白を通ってフェード"],["fade_black","黒を通ってフェード"],["fade_glow","光ってフェード"],["fade_luma","明るい所からフェード"],["fade_zoom","ズームしながらフェード"],["fade_soft","やわらかく流れる"],["fade_rgb","色ズレフェード"],["glitchsuck","バグって吸い込み"],["jikuu","時空歪み"],["suck","吸い込み"],["splitsuck","割れて吸い込み"],["uzu","渦巻き"],["glitch","バグ切り替え"],["right","→ 右へ"],["left","← 左へ"],["up","↑ 上へ"],["down","↓ 下へ"],["zoomin","ズームで突き抜け"],["zoomout","ズームアウト"],["zoomwhip","ズームで流れる"],["shard","破片（三角割れ）"],["tri_fade","3分割（フェードで上から）"],["tri_fadev","縦3分割（フェード）"],["tri_down","3分割（上から）"],["tri_lr","3分割（左右から）"],["tri_up","3分割（下から）"],["tri_col","縦3分割"],["spinswap","回転"],["whiteflash","白フラッシュ"],["rgbflash","RGBフラッシュ"],["shakecut","シェイク切り替え"],["stretch","伸びる"],["pixel","ピクセル"],["wave","波打つ"],["circle","丸く広がる"],["flip","裏返し"],["blurx","ぼかし"],["door","ドアが開く"],["blinds","ブラインド"],["liquid","ぐにゃっと"],["burn","燃えて切り替え"],["tiles","タイルめくり"],["zoomspin","ズームスピン"],["echo","残像"],["dissolve","ドット消え"],["xfade","クロスフェード"]];
 const PAIRSET=new Set(PAIR.map(a=>a[0]));
 const FXT={camera:"カメラ",shake:"シェイク",squash:"ふわんふわん（つぶれ揺れ）",dent:"時空歪み（ためてドン）",lens:"広角レンズ",sharpen:"高画質化（シャープ）",halftone:"漫画トーン",edge:"線画",vhs:"VHS",leak:"光漏れ",bloom:"ブルーム",mosaic:"モザイク",posterize:"ポスタライズ",wavefx:"ゆらぎ",flash:"フラッシュ",strobe:"黒フラッシュ",glitch:"グリッチ",zoomblur:"ズームブラー",pulse:"ズームパルス",rgb:"RGBずれ",invert:"反転",blurfx:"ぼかし",vignette:"ビネット",grain:"フィルムノイズ",bars:"シネマバー"};
 const BLENDS=[["source-over","通常"],["screen","スクリーン"],["lighter","加算"],["multiply","乗算"],["overlay","オーバーレイ"],["soft-light","ソフトライト"],["hard-light","ハードライト"],["color-dodge","覆い焼き"],["difference","差の絶対値"],["luminosity","輝度"]];
@@ -431,7 +517,11 @@ const SHAKE_M=[["hit","ドン（1回）"],["hitlong","ドン（長い余韻）"]
 const HITM={hit:1,hitlong:1,hit2:2,hit3:3,hith:1,hitv:1,hitc:1,hitbeat:0};
 const ENV_M=[["flat","ずっと同じ"],["decay","だんだん弱く"],["grow","だんだん強く"],["peak","真ん中で最大"],["beats","ビートで強く"]];
 const SHAKE_PRE=[["ドン重い",{mode:"hit",amount:.9,hz:7,len:1.3,blur:.9,rgb:.2,zoom:.1,env:"flat"}],["ドン鋭い",{mode:"hit",amount:.7,hz:18,len:.5,blur:.8,rgb:.35,zoom:0,env:"flat"}],["やさしい",{amount:.25,hz:6,blur:.35,rgb:0,zoom:0,env:"flat"}],["ふつう",{amount:.5,hz:9,blur:.6,rgb:.15,zoom:0,env:"flat"}],["激しい",{amount:.8,hz:14,blur:.85,rgb:.4,zoom:.2,env:"flat"}],["爆発",{amount:1,hz:18,blur:1,rgb:.7,zoom:.4,env:"decay"}],["ビート",{amount:.7,hz:12,blur:.8,rgb:.3,zoom:.1,env:"beats"}]];
-const COMBOS=[["集まって拡大",{tin:["gather_ud",.8,1],fx:[["shake",.4,.5,{mode:"hit",amount:.6,hz:13,blur:.8,rgb:.2}],["flash",.38,.12,{amount:.5}]]}],
+const COMBOS=[["円でドン",{tin:["shape_circle",.5,1],fx:[["shake",.3,.5,{mode:"hit",amount:.6,hz:13,blur:.8,rgb:.2}],["flash",.28,.1,{amount:.45}]]}],
+ ["斬撃",{tin:["wipe_cut",.7,1],fx:[["flash",.2,.12,{amount:.6}],["shake",.21,.5,{mode:"hit",amount:.7,hz:14,blur:.9,rgb:.3}]]}],
+ ["シャキッ",{tin:["wipe_slash",.35,1],fx:[["shake",.17,.35,{mode:"hit",amount:.5,hz:16,blur:.8}]]}],
+ ["星できらっ",{tin:["shape_star",.6,1],fx:[["flash",.5,.15,{amount:.5}]]}],
+ ["集まって拡大",{tin:["gather_ud",.8,1],fx:[["shake",.4,.5,{mode:"hit",amount:.6,hz:13,blur:.8,rgb:.2}],["flash",.38,.12,{amount:.5}]]}],
  ["インパクト",{tin:["zoomin",.35,1.2],fx:[["shake",0,.45,{mode:"hit",amount:.8,hz:14,blur:.9,rgb:.3}],["flash",.12,.14,{amount:.8}]]}],
  ["バグ",{tin:["glitchsuck",.7,1],fx:[["shake",-.05,.55,{mode:"circle",amount:.4,hz:16,blur:.7,rgb:.7,env:"peak"}]]}],
  ["ウィップ",{tin:["right",.3,1.3],fx:[["shake",-.1,.45,{mode:"h",amount:.5,hz:10,blur:1,rgb:.2,env:"peak"}]]}],
@@ -504,15 +594,15 @@ const GLX=(()=>{try{const c=document.createElement("canvas");const gl=c.getConte
  const shd=(type,s)=>{const o=gl.createShader(type);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){console.warn(gl.getShaderInfoLog(o));return null}return o};
  const prog=name=>{if(progs[name])return progs[name];if(bad.has(name))return null;const vs=shd(gl.VERTEX_SHADER,VS),fs=shd(gl.FRAGMENT_SHADER,`precision ${hp} float;\n`+src("sh-head")+"\n"+src("sh-"+name));
   if(!vs||!fs){bad.add(name);return null}const pr=gl.createProgram();gl.attachShader(pr,vs);gl.attachShader(pr,fs);gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){bad.add(name);return null}
-  const u={};for(const k of ["A","B","p","ar","amt","seed","v","rgb","res"])u[k]=gl.getUniformLocation(pr,k);return progs[name]={pr,u,loc:gl.getAttribLocation(pr,"pos")}};
+  const u={};for(const k of ["A","B","p","ar","amt","seed","v","rgb","res","wq"])u[k]=gl.getUniformLocation(pr,k);return progs[name]={pr,u,loc:gl.getAttribLocation(pr,"pos")}};
  const EMPTY=document.createElement("canvas");EMPTY.width=EMPTY.height=2;
  const run=(name,a,b,o,W,H)=>{const q=prog(name);if(!q||gl.isContextLost())return null;if(c.width!==W)c.width=W;if(c.height!==H)c.height=H;gl.viewport(0,0,W,H);gl.useProgram(q.pr);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tA);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,a||EMPTY);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,tB);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,b||EMPTY);
-  const u=q.u,vv=o.v||[0,0];gl.uniform1i(u.A,0);gl.uniform1i(u.B,1);gl.uniform1f(u.p,o.p||0);gl.uniform1f(u.ar,W/H);gl.uniform1f(u.amt,o.amt??1);gl.uniform1f(u.seed,o.seed||0);gl.uniform2f(u.v,vv[0],vv[1]);gl.uniform1f(u.rgb,o.rgb||0);gl.uniform2f(u.res,W,H);
+  const u=q.u,vv=o.v||[0,0];gl.uniform1i(u.A,0);gl.uniform1i(u.B,1);gl.uniform1f(u.p,o.p||0);gl.uniform1f(u.ar,W/H);gl.uniform1f(u.amt,o.amt??1);gl.uniform1f(u.seed,o.seed||0);gl.uniform2f(u.v,vv[0],vv[1]);gl.uniform1f(u.rgb,o.rgb||0);gl.uniform2f(u.res,W,H);const w4=o.w||[0,0,0,0];gl.uniform4f(u.wq,w4[0],w4[1],w4[2],w4[3]);
   gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.enableVertexAttribArray(q.loc);gl.vertexAttribPointer(q.loc,2,gl.FLOAT,false,0,0);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return c};
  return {run}}catch(e){return null}})();
-const GLT={gather_ud:{sh:"gather",v:[0,.45]},gather_lr:{sh:"gather",v:[1,.45]},gather_4:{sh:"gather",v:[2,.45]},jikuu:{sh:"jikuu"},door:{sh:"door"},blinds:{sh:"blinds"},liquid:{sh:"liquid"},burn:{sh:"burn"},tiles:{sh:"tiles"},zoomspin:{sh:"zoomspin"},echo:{sh:"echo"},dissolve:{sh:"dissolve"},splitsuck:{sh:"splitsuck"},shard:{sh:"shard"},zoomwhip:{sh:"zoomwhip"},tri_fade:{sh:"tri",v:[4,0]},tri_fadev:{sh:"tri",v:[5,0]},tri_down:{sh:"tri",v:[0,0]},tri_lr:{sh:"tri",v:[1,0]},tri_up:{sh:"tri",v:[2,0]},tri_col:{sh:"tri",v:[3,0]},suck:{sh:"suck"},uzu:{sh:"uzu"},glitchsuck:{sh:"gsuck"},glitch:{sh:"glitch"},right:{sh:"slide",v:[1,0]},left:{sh:"slide",v:[-1,0]},up:{sh:"slide",v:[0,-1]},down:{sh:"slide",v:[0,1]},zoomin:{sh:"zoomin"},zoomout:{sh:"zoomout"},spinswap:{sh:"spin"},
+const GLT={gather_ud:{sh:"gather",v:[0,.45]},gather_lr:{sh:"gather",v:[1,.45]},gather_4:{sh:"gather",v:[2,.45]},gather_lrv:{sh:"gather",v:[3,.45]},gather_udv:{sh:"gather",v:[4,.45]},shape_circle:{sh:"shape",sid:0},shape_diamond:{sh:"shape",sid:1},shape_square:{sh:"shape",sid:2},shape_star:{sh:"shape",sid:3},shape_heart:{sh:"shape",sid:4},shape_hex:{sh:"shape",sid:5},shape_tri:{sh:"shape",sid:6},shape_cross:{sh:"shape",sid:7},shape_dots:{sh:"shape",sid:8},shape_grid:{sh:"shape",sid:9},shape_dgrid:{sh:"shape",sid:10},wipe_slash:{sh:"wipe",mode:0,ang:30},wipe_stripe:{sh:"wipe",mode:1,ang:20,cnt:6},wipe_slice:{sh:"wipe",mode:2,cnt:8},wipe_clock:{sh:"wipe",mode:3},wipe_splith:{sh:"wipe",mode:4},wipe_zigzag:{sh:"wipe",mode:5,cnt:10},wipe_quad:{sh:"wipe",mode:6},wipe_cut:{sh:"wipe",mode:7,ang:-25},wipe_bar:{sh:"wipe",mode:8,ang:0},fade_white:{sh:"fadex",mode:0},fade_black:{sh:"fadex",mode:1},fade_glow:{sh:"fadex",mode:2},fade_luma:{sh:"fadex",mode:3},fade_zoom:{sh:"fadex",mode:4},fade_soft:{sh:"fadex",mode:5},fade_rgb:{sh:"fadex",mode:6},jikuu:{sh:"jikuu"},door:{sh:"door"},blinds:{sh:"blinds"},liquid:{sh:"liquid"},burn:{sh:"burn"},tiles:{sh:"tiles"},zoomspin:{sh:"zoomspin"},echo:{sh:"echo"},dissolve:{sh:"dissolve"},splitsuck:{sh:"splitsuck"},shard:{sh:"shard"},zoomwhip:{sh:"zoomwhip"},tri_fade:{sh:"tri",v:[4,0]},tri_fadev:{sh:"tri",v:[5,0]},tri_down:{sh:"tri",v:[0,0]},tri_lr:{sh:"tri",v:[1,0]},tri_up:{sh:"tri",v:[2,0]},tri_col:{sh:"tri",v:[3,0]},suck:{sh:"suck"},uzu:{sh:"uzu"},glitchsuck:{sh:"gsuck"},glitch:{sh:"glitch"},right:{sh:"slide",v:[1,0]},left:{sh:"slide",v:[-1,0]},up:{sh:"slide",v:[0,-1]},down:{sh:"slide",v:[0,1]},zoomin:{sh:"zoomin"},zoomout:{sh:"zoomout"},spinswap:{sh:"spin"},
  whiteflash:{sh:"whiteflash"},rgbflash:{sh:"rgbflash"},shakecut:{sh:"shakecut"},stretch:{sh:"stretch"},pixel:{sh:"pixel"},wave:{sh:"wave"},circle:{sh:"circle"},flip:{sh:"flip"},blurx:{sh:"blurx"},xfade:{sh:"xfade"}};
 const GLFX={sharpen:1,halftone:1,edge:1,vhs:1,leak:1,bloom:1,mosaic:1,posterize:1,wavefx:1};
 /* ================= 状態 ================= */
@@ -696,8 +786,8 @@ function seek(t){T=clamp(t,0,duration());if(playing){p0=T;t0=performance.now()}s
 /* ================= 描画 ================= */
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function st0(v){return {alpha:v.o??1,sc:1,dx:0,dy:0,rot:0,ov:null,ovA:0,zb:0,mb:0,mx:0,my:0,gb:0}}
-function transState(tr,p,isIn,st,W){
- if(!tr||tr.type==="none"||p>=1||PAIRSET.has(tr.type))return;p=clamp(p);const q=1-p,eo=EASE.out(p);
+function transState(tr,p,isIn,st,W,H=W*1.6){
+ if(!tr||tr.type==="none"||p>=1||PAIRSET.has(tr.type))return;p=clamp(p);if(tr.cv)p=isIn?cvEval(tr.cv,p):1-cvEval(tr.cv,1-p);const q=1-p,eo=EASE.out(p);
  switch(tr.type){
   case "fade":st.alpha*=p;break;
   case "black":st.ov="#000";st.ovA=Math.max(st.ovA,q);break;
@@ -706,7 +796,15 @@ function transState(tr,p,isIn,st,W){
   case "zoomblur":st.sc*=1+.3*(1-eo);st.zb=Math.max(st.zb,q);break;
   case "slide":st.dx+=(isIn?1:-1)*W*(1-eo);st.mb=Math.max(st.mb,q);st.mx=-1;st.my=0;break;
   case "spin":st.rot+=(isIn?-1:1)*Math.PI*.6*(1-eo);st.sc*=1+.25*q;st.zb=Math.max(st.zb,q*.7);break;
-  case "blur":st.gb=Math.max(st.gb,q*18);st.alpha*=Math.min(1,p*2.5);break;}}
+  case "blur":st.gb=Math.max(st.gb,q*18);st.alpha*=Math.min(1,p*2.5);break;
+  case "pop":{const k=1.9,x=p-1,bo=1+(k+1)*x*x*x+k*x*x;st.sc*=Math.max(.01,.25+.75*bo);st.alpha*=Math.min(1,p*3);break}
+  case "drop":{let b=p;const n1=7.5625,d1=2.75;b=b<1/d1?n1*b*b:b<2/d1?n1*(b-=1.5/d1)*b+.75:b<2.5/d1?n1*(b-=2.25/d1)*b+.9375:n1*(b-=2.625/d1)*b+.984375;st.dy-=(1-b)*H*.7;st.alpha*=Math.min(1,p*4);break}
+  case "rise":st.dy+=(1-eo)*H*.22;st.alpha*=p;st.mb=Math.max(st.mb,q*.6);st.mx=0;st.my=1;break;
+  case "slidel":st.dx-=(isIn?1:-1)*W*(1-eo);st.mb=Math.max(st.mb,q);st.mx=1;st.my=0;break;
+  case "whipin":{const e=EASE.expo(p);st.dx+=(isIn?1:-1)*W*1.1*(1-e);st.mb=Math.max(st.mb,Math.min(1,(1-e)*2.5));st.mx=-1;st.my=0;break}
+  case "bigzoom":st.sc*=1+1.4*(1-EASE.expo(p));st.zb=Math.max(st.zb,q);st.alpha*=Math.min(1,p*2.5);break;
+  case "flicker":if(p<.9){const on=Math.floor(p*16)%2===0;st.alpha*=on?Math.min(1,.3+p):.12}break;
+  case "spinpop":st.rot+=(isIn?-1:1)*Math.PI*2*(1-eo);st.sc*=Math.max(.01,eo);break;}}
 function pairStates(type,p,W,H){
  const e=EASE.inout(p),b=Math.sin(Math.PI*p);
  const A={sc:1,dx:0,dy:0,rot:0,alpha:1,zb:0,mb:0,mx:0,my:0,isA:true},B={sc:1,dx:0,dy:0,rot:0,alpha:1,zb:0,mb:0,mx:0,my:0};let aTop=false;
@@ -758,8 +856,8 @@ function drawItem(it,t,X,W,H,ex){
  if(it.type==="image"||it.type==="video"){sr=srcOf(it);if(!sr)return}
  const v=val(it,local),st=st0(v);
  if(ex){st.sc=ex.sc;st.dx=ex.dx;st.dy=ex.dy;st.rot=ex.rot;st.alpha*=ex.alpha;st.zb=ex.zb;st.mb=ex.mb;st.mx=ex.mx;st.my=ex.my}
- else transState(it.tin,local/Math.max(.01,it.tin.dur),true,st,W);
- if(!ex||!ex.isA)transState(it.tout,(it.dur-local)/Math.max(.01,it.tout.dur),false,st,W);
+ else transState(it.tin,local/Math.max(.01,it.tin.dur),true,st,W,H);
+ if(!ex||!ex.isA)transState(it.tout,(it.dur-local)/Math.max(.01,it.tout.dur),false,st,W,H);
  let txt=null;
  if(it.type==="text"){txt=String(it.text||"");const an=it.tanim||{type:"none"};if(an.type!=="none"){const q=clamp(local/Math.max(.05,an.dur));
   if(an.type==="type")txt=txt.slice(0,Math.ceil(txt.length*q));
@@ -917,10 +1015,10 @@ function renderFrame(t,C,X){
  prepGX(t,W,H,items);
  const cam=act.find(f=>f.type==="camera"&&!f.tg);let camBlur=0;if(cam){const cq=val(cam,t-cam.start);X.translate(W/2,H/2);X.scale(cq.s,cq.s);X.rotate(cq.r*Math.PI/180);X.translate(-W/2-cq.x*W,-H/2-cq.y*H);camBlur=cq.cbl||0}
  for(const it of items){
-  if(PAIRSET.has(it.tin.type)&&t-it.start<it.tin.dur){const pp=clamp((t-it.start)/Math.max(.01,it.tin.dur)),A=prevOf(it);
+  if(PAIRSET.has(it.tin.type)&&t-it.start<it.tin.dur){const pp=cvEval(it.tin.cv,clamp((t-it.start)/Math.max(.01,it.tin.dur))),A=prevOf(it);
    const gt=GLX&&GLT[it.tin.type];
    if(gt){const NE={sc:1,dx:0,dy:0,rot:0,alpha:1,zb:0,mb:0,mx:0,my:0};prepLay(layB,lbx,W,H);drawItem(it,t,lbx,W,H,NE);prepLay(layA,lax,W,H);if(A)drawItem(A,A.start+A.dur-1e-3,lax,W,H,{...NE,isA:true});
-    const go=GLX.run(gt.sh,layA,layB,{p:pp,amt:it.tin.amt??1,seed:t*32,v:gt.sh==="gather"?[gt.v[0],it.tin.size??.45]:gt.v,rgb:it.tin.blur??(gt.sh==="gather"?(ST.gblur??.6):0)},W,H);if(go){X.drawImage(go,0,0,W,H);continue}}
+    const go=GLX.run(gt.sh,layA,layB,glOpts(it,gt,pp,t),W,H);if(go){X.drawImage(go,0,0,W,H);continue}}
    if(["suck","uzu","splitsuck"].includes(it.tin.type)){drawSuck(it,A,t,pp,X,W,H);continue}
    if(it.tin.type==="glitchsuck"||it.tin.type==="glitch"){drawGlitch(it,A,t,pp,X,W,H,it.tin.type==="glitchsuck");continue}
    const sp=pairStates(it.tin.type,pp,W,H),drawA=()=>{if(A)drawItem(A,A.start+A.dur-1e-3,X,W,H,sp.A)};
@@ -935,7 +1033,7 @@ function renderFrame(t,C,X){
  for(const f of act){const p=(t-f.start)/f.dur,a=f.amount??.5;
   if(f.type==="dent"){const K=f.dent??.45,tm=f.tame??.45,ts=f.start+tm,sg=f.ddir==="out"?-1:1;let k;
    if(t<ts){const u=clamp((t-f.start)/tm);k=K*u*u}else{const d=t-ts;k=-K*.22*Math.exp(-d*14)*Math.cos(d*32)}
-   if(GLX&&Math.abs(k)>.003){const go=GLX.run("dent",C,null,{amt:sg*k},W,H);if(go){X.save();X.globalCompositeOperation="copy";X.drawImage(go,0,0);X.restore()}}
+   if(GLX&&Math.abs(k)>.003){const go=GLX.run("dent",C,null,{amt:sg*k,w:[f.rad||0,f.shp==="circle"?2:4,0,0]},W,H);if(go){X.save();X.globalCompositeOperation="copy";X.drawImage(go,0,0);X.restore()}}
    if(t>=ts){const fl=(f.flash??.7)*Math.exp(-(t-ts)*11);if(fl>.01){X.globalAlpha=fl;X.fillStyle="#fff";X.fillRect(0,0,W,H);X.globalAlpha=1}}}
   else if(f.type==="flash"||f.type==="strobe"){const n=Math.max(1,f.count||1),fr=(p*n)%1;X.globalAlpha=Math.pow(1-fr,2.2)*a;X.fillStyle=f.type==="strobe"?"#000":(f.color||"#fff");X.fillRect(0,0,W,H);X.globalAlpha=1}
   else if(f.type==="glitch"){postCopy(C);const rnd=mulberry(Math.floor(t*(12+a*18))+7);if(rnd()<.35+a*.5){const n=4+Math.floor(a*10);for(let i=0;i<n;i++){const y=rnd()*H,h=H*(.01+rnd()*.08),dx=(rnd()-.5)*W*.18*a;X.drawImage(buf,0,y,W,h,dx,y,W,h)}
@@ -1177,24 +1275,107 @@ function applyCombo(it,n){const c=COMBOS.find(x=>x[0]===n)[1];snap();P.fx=P.fx.f
  P.audio=P.audio.filter(a=>a.cmb!==it.id);if(c.tin[0]!=="none")addSE("trans",it.start-.12,it.id);
  for(const [ty,off,d,o] of c.fx){const f=newFx(ty,Math.max(0,it.start+off),d);Object.assign(f,o);f.cmb=it.id;P.fx.push(f);seFor(f,it.id)}
  changed(true);renderPanel();playRange(it.start-.5,it.start+it.tin.dur+.5)}
-function pTrans(pn,it){if(!it)return;
- const pk=(key,v)=>{snap();const wasG=String(it[key].type).startsWith("gather_");it[key].type=v;if(v.startsWith("gather_")&&!wasG){it[key].blur=ST.gblur??.6;it[key].size=it[key].size??.45;if(it[key].dur<.6)it[key].dur=.8}if(key==="tin"&&v!=="none")addSE("trans",it.start-.12);if(PAIRSET.has(v)&&it[key].dur<.2)it[key].dur=.4;if(v==="glitchsuck"&&it[key].dur<.6)it[key].dur=.7;if(v==="jikuu"&&it[key].dur<.5)it[key].dur=.6;if(v==="splitsuck"&&it[key].dur<.6)it[key].dur=.7;if(v.startsWith("tri_")&&it[key].dur<1.2){it[key].dur=1.5;it[key].blur=0;if(it.dur<1.8&&it.type!=="video")it.dur=1.8}changed(true);renderPanel();if(key==="tin"&&v!=="none")playRange(it.start-.5,it.start+it[key].dur+.4)};
+/* ===== 切り替え：速さのグラフ・瞬間の演出・詳細 ===== */
+const CURVES=[["標準",null],["最後にしゅっ",[.7,0,.95,.25]],["ゆっくり→しゅっ",[.55,0,.9,.45]],["ギリギリまで溜める",[.92,0,1,.06]],["最初にしゅっ",[.05,.75,.3,1]],["しゅっ→ゆっくり",[.1,.6,.45,1]],["真ん中でしゅっ",[.85,0,.15,1]],["なめらか",[.42,0,.58,1]],["カクッと2段",[.15,.75,.85,.25]]];
+function cvEval(cv,x){x=clamp(x);if(!cv||x<=0||x>=1)return x;const [x1,y1,x2,y2]=cv,B=(t,a,b)=>3*(1-t)*(1-t)*t*a+3*(1-t)*t*t*b+t*t*t;let lo=0,hi=1,t=.5;for(let i=0;i<26;i++){t=(lo+hi)/2;if(B(t,x1,x2)<x)lo=t;else hi=t}return clamp(B(t,y1,y2))}
+function curName(cv){if(!cv)return "標準";for(const [n,c] of CURVES)if(c&&c.every((v,i)=>Math.abs(v-cv[i])<.002))return n;return ""}
+function curveUI(tr,onDone){const W0=300,H0=180,px=18,py=14,iw=W0-px*2,ih=H0-py*2,X=x=>px+x*iw,Y=y=>py+(1-y)*ih,NS="http://www.w3.org/2000/svg";
+ const svg=document.createElementNS(NS,"svg");svg.setAttribute("viewBox",`0 0 ${W0} ${H0}`);svg.setAttribute("width","100%");svg.style.cssText="display:block;background:#1d1a28;border-radius:12px;touch-action:none;max-width:440px;margin:6px 0";
+ const draw=()=>{const c=tr.cv||[1/3,1/3,2/3,2/3];let g="";for(let i=0;i<=4;i++){g+=`<line x1="${X(i/4)}" y1="${Y(0)}" x2="${X(i/4)}" y2="${Y(1)}" stroke="#2c2840"/><line x1="${X(0)}" y1="${Y(i/4)}" x2="${X(1)}" y2="${Y(i/4)}" stroke="#2c2840"/>`}
+  let sp="";for(let i=0;i<=40;i++){const x=i/40,y=cvEval(c,x);sp+=(i?"L":"M")+X(x).toFixed(1)+","+Y(y).toFixed(1)}
+  svg.innerHTML=g+`<text x="${X(1)}" y="${H0-2}" font-size="9" fill="#7d7794" text-anchor="end">時間 →</text><text x="${px+2}" y="${py+9}" font-size="9" fill="#7d7794">進み ↑</text>`+
+   `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(c[0])}" y2="${Y(c[1])}" stroke="#8f86b8" stroke-dasharray="3 3"/><line x1="${X(1)}" y1="${Y(1)}" x2="${X(c[2])}" y2="${Y(c[3])}" stroke="#8f86b8" stroke-dasharray="3 3"/>`+
+   `<path d="${sp}" fill="none" stroke="#c3b5ff" stroke-width="3" stroke-linecap="round"/>`+
+   `<circle cx="${X(c[0])}" cy="${Y(c[1])}" r="9" fill="#7c5cff" stroke="#fff" stroke-width="2"/><circle cx="${X(c[2])}" cy="${Y(c[3])}" r="9" fill="#ff5d9e" stroke="#fff" stroke-width="2"/>`};
+ let drag=-1;const pt=e=>{const r=svg.getBoundingClientRect();return [(e.clientX-r.left)/r.width*W0,(e.clientY-r.top)/r.height*H0]};
+ const move=e=>{if(drag<0)return;const [sx,sy]=pt(e);tr.cv[drag*2]=clamp((sx-px)/iw);tr.cv[drag*2+1]=clamp(1-(sy-py)/ih);draw();needDraw=true};
+ svg.addEventListener("pointerdown",e=>{const [sx,sy]=pt(e),c=tr.cv||[1/3,1/3,2/3,2/3],d1=Math.hypot(sx-X(c[0]),sy-Y(c[1])),d2=Math.hypot(sx-X(c[2]),sy-Y(c[3]));if(Math.min(d1,d2)>70)return;
+  drag=d1<=d2?0:1;snap();if(!tr.cv)tr.cv=[...c];try{svg.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault();move(e)});
+ svg.addEventListener("pointermove",move);const up=()=>{if(drag<0)return;drag=-1;changed();onDone&&onDone()};svg.addEventListener("pointerup",up);svg.addEventListener("pointercancel",up);
+ draw();return svg}
+function curveBlock(tr,label,play){return h("div",null,sec(label),chips(CURVES.map(([n])=>[n,n]),curName(tr.cv),n=>{snap();const c=CURVES.find(x=>x[0]===n)[1];tr.cv=c?[...c]:null;changed();renderPanel();play&&play()}),
+ curveUI(tr,()=>{renderPanel();play&&play()}),h("p",{class:"note",style:"margin-top:0"},"線が急なところほど速く進みます。2つの丸を指で動かして自由に変えられます（離すと試し再生）。"))}
+const HITS=[["none","なし"],["dent","ドン（へこむ）"],["dentf","ドン＋フラッシュ"],["shake","シェイク"],["shakef","シェイク＋フラッシュ"],["flash","フラッシュ"],["zoom","ズームでドクン"]];
+const HITP={jikuu:0,suck:.8,splitsuck:.7,glitchsuck:.75,shard:.3,tri_down:.85,tri_up:.85,tri_lr:.85,tri_col:.85,wipe_cut:.3,spinswap:.4,wipe_slash:.5,wipe_bar:.5};
+function hitDef(tr){const ty=tr.type;return ty.startsWith("gather_")?Math.min(.95,(tr.gf??.42)+(tr.hold??.08)):ty.startsWith("shape_")?.08:HITP[ty]??.5}
+function setHit(it,kind){P.fx=P.fx.filter(f=>f.cmb!==it.id);P.audio=P.audio.filter(a=>!(a.cmb===it.id&&a.se!=="trans"));it.tin.hit=kind;if(kind==="none")return;
+ const A=it.tin.hitA??1,ts=it.start+it.tin.dur*(it.tin.hp??hitDef(it.tin)),add=(ty,st,d,o)=>{const f=newFx(ty,Math.max(0,st),d);Object.assign(f,o);f.cmb=it.id;f.hit=1;P.fx.push(f);seFor(f,it.id)};
+ if(kind==="dent"||kind==="dentf")add("dent",ts-.45,1.3,{ddir:"in",dent:Math.min(.85,.32*A),flash:kind==="dentf"?Math.min(1,.6*A):0,tame:.45});
+ if(kind==="shake"||kind==="shakef")add("shake",ts,.6,{mode:"hit",amount:Math.min(1,.6*A),hz:13,blur:.8,rgb:.2});
+ if(kind==="flash"||kind==="shakef")add("flash",ts-.02,.14,{amount:Math.min(1,.6*A)});
+ if(kind==="zoom")add("pulse",ts,.35,{amount:Math.min(1,.6*A),count:1})}
+let hitT=null;function hitLater(it){clearTimeout(hitT);hitT=setTimeout(()=>{if(it.tin.hit&&it.tin.hit!=="none"){setHit(it,it.tin.hit);changed(true)}},350)}
+const GEX={acc:0,lin:1,dec:2,bounce:3};
+function glOpts(it,gt,pp,t){const tr=it.tin,o={p:pp,amt:tr.amt??1,seed:t*32,v:gt.v,rgb:tr.blur??0,w:[0,0,0,0]};
+ if(gt.sh==="gather"){o.v=[gt.v[0],tr.size??.45];o.rgb=tr.blur??(ST.gblur??.6);o.w=[GEX[tr.ge||"acc"]??0,tr.rev?1:0,tr.gf??.42,tr.hold??.08]}
+ else if(gt.sh==="jikuu")o.w=[tr.rad||0,tr.shp==="circle"?2:4,0,0];
+ else if(gt.sh==="shape"){o.v=[tr.cx??.5,tr.cy??.5];o.w=[gt.sid,(tr.bw??.5)*(tr.bc==="black"?-1:1),tr.zm??.4,tr.spin??(gt.sid===3?.6:0)];o.rgb=tr.soft??.1}
+ else if(gt.sh==="wipe"){o.v=[tr.ang??gt.ang??0,tr.cnt??gt.cnt??8];o.w=[gt.mode,(tr.bw??.6)*(tr.bc==="black"?-1:1),0,0];o.rgb=tr.blur??.5}
+ else if(gt.sh==="fadex"){o.v=[tr.ang??0,0];o.w=[gt.mode,0,0,0]}
+ return o}
+const PAIR_CAT=[["図形",["shape_circle","shape_diamond","shape_square","shape_star","shape_heart","shape_hex","shape_tri","shape_cross","shape_dots","shape_grid","shape_dgrid","circle"]],
+ ["シャキッ系",["wipe_cut","wipe_slash","wipe_stripe","wipe_slice","wipe_bar","wipe_zigzag","wipe_clock","wipe_splith","wipe_quad","right","left","up","down"]],
+ ["フェード系",["fade_white","fade_black","fade_glow","fade_luma","fade_zoom","fade_soft","fade_rgb","xfade","whiteflash","rgbflash","blurx","dissolve","burn"]],
+ ["集まる・分割",["gather_ud","gather_lr","gather_4","gather_lrv","gather_udv","tri_fade","tri_fadev","tri_down","tri_lr","tri_up","tri_col","shard","door","blinds","tiles"]],
+ ["歪み・吸い込み",["jikuu","suck","splitsuck","uzu","glitchsuck","glitch","liquid","wave","zoomspin","echo"]],
+ ["ズーム・回転ほか",["zoomin","zoomout","zoomwhip","spinswap","stretch","pixel","flip","shakecut"]]];
+(()=>{const all=new Set(PAIR_CAT.flatMap(c=>c[1]));const last=PAIR_CAT[PAIR_CAT.length-1][1];for(const [id] of PAIR)if(!all.has(id))last.push(id);for(const c of PAIR_CAT)c[1]=c[1].filter(id=>PAIRSET.has(id))})();
+const PL=Object.fromEntries(PAIR);let transCat=null;
+function segBool(cur,a,b,fn){return h("div",{class:"seg"},h("button",{class:cur?"":"on",onclick:()=>fn(false)},a),h("button",{class:cur?"on":"",onclick:()=>fn(true)},b))}
+function pairOpts(it,pk,play){const tr=it.tin,ty=tr.type,out=[],set=(k,v)=>{snap();tr[k]=v;if(tr.hit&&tr.hit!=="none")setHit(it,tr.hit);changed(true);renderPanel();play()},deg=v=>Math.round(v)+"°";
+ if(ty.startsWith("gather_")){out.push(sec("来る方向"),chips([["gather_ud","上と下から"],["gather_lr","左と右から（上半分・下半分）"],["gather_4","4すみから"],["gather_lrv","縦に割れて左右から"],["gather_udv","縦に割れて上下から"]],ty,v=>pk("tin",v)),
+   h("div",{style:"height:6px"}),segBool(!!tr.rev,"ふつうの向き","逆向き",v=>set("rev",v)),
+   sec("広がり方"),chips([["acc","加速して最後しゅっ"],["lin","一定"],["dec","減速（ふわっ）"],["bounce","弾む"]],tr.ge||"acc",v=>set("ge",v)),
+   slider("ブレ",0,1.5,.01,()=>tr.blur??(ST.gblur??.6),v=>{tr.blur=v},pct),slider("最初の大きさ",.15,.9,.01,()=>tr.size??.45,v=>{tr.size=v},pct),
+   slider("集まる時間",.15,.7,.01,()=>tr.gf??.42,v=>{tr.gf=v;hitLater(it)},pct),slider("止まる時間",0,.4,.01,()=>tr.hold??.08,v=>{tr.hold=v;hitLater(it)},pct),
+   (tr.ge==="bounce")?slider("弾み",.2,2,.01,()=>tr.amt??1,v=>{tr.amt=v},v=>v.toFixed(2)+"x"):null,
+   h("p",{class:"note"},"集まる時間・止まる時間は切り替え全体に対する割合です。残りの時間で広がります。「加速して最後しゅっ」は最後まで減速せずに一気に広がります。"))}
+ else if(ty==="jikuu")out.push(slider("強さ",.2,2,.01,()=>tr.amt??1,v=>{tr.amt=v},v=>v.toFixed(2)+"x"),slider("中心の広さ",0,.8,.01,()=>tr.rad||0,v=>{tr.rad=v},pct),
+   sec("中心の形"),chips([["sq","四角っぽい"],["circle","まる"]],tr.shp||"sq",v=>set("shp",v)),
+   h("p",{class:"note"},"「中心の広さ」を上げると、1点に向かって歪むんじゃなく、真ん中の円の範囲ごとまとめて歪みます（強さとは別）。ドンは下の「切り替えの瞬間」で選べます。"));
+ else if(ty.startsWith("shape_")){const grid=["shape_dots","shape_grid","shape_dgrid"].includes(ty);
+  if(!grid)out.push(slider("縁の線",0,1.5,.01,()=>tr.bw??.5,v=>{tr.bw=v},pct),chips([["white","白い線"],["black","黒い線"]],tr.bc||"white",v=>set("bc",v)),
+   slider("中身のズーム",0,1.5,.01,()=>tr.zm??.4,v=>{tr.zm=v},pct),slider("回転",-2,2,.05,()=>tr.spin??(ty==="shape_star"?.6:0),v=>{tr.spin=v},v=>v.toFixed(2)));
+  out.push(sec(grid?"広がり始める位置":"広がる中心の位置"),slider("横",0,1,.01,()=>tr.cx??.5,v=>{tr.cx=v},pct),slider("縦",0,1,.01,()=>tr.cy??.5,v=>{tr.cy=v},pct),slider("ふちのぼかし",0,1,.01,()=>tr.soft??.1,v=>{tr.soft=v},pct))}
+ else if(ty.startsWith("wipe_")){const gt=GLT[ty]||{};out.push(gt.ang!=null?slider("角度",-180,180,1,()=>tr.ang??gt.ang,v=>{tr.ang=v},deg):null,gt.cnt!=null?slider("本数",2,20,1,()=>tr.cnt??gt.cnt,v=>{tr.cnt=v},v=>v+"本"):null,
+   [2,4,6].includes(gt.mode)?null:slider(ty==="wipe_bar"?"バーの濃さ":"線の太さ",0,1.5,.01,()=>tr.bw??.6,v=>{tr.bw=v},pct),
+   [2,4,6].includes(gt.mode)?null:chips([["white","白"],["black","黒"]],tr.bc||"white",v=>set("bc",v)),slider("ブレ",0,1,.01,()=>tr.blur??.5,v=>{tr.blur=v},pct))}
+ else if(ty==="fade_soft")out.push(slider("流れる向き",-180,180,1,()=>tr.ang??0,v=>{tr.ang=v},deg));
+ if(!ty.startsWith("gather_")&&ty!=="jikuu"&&!ty.startsWith("shape_")&&!ty.startsWith("wipe_")&&!["fade_white","fade_black","fade_luma","fade_soft"].includes(ty))out.push(slider("強さ",.2,2,.01,()=>tr.amt??1,v=>{tr.amt=v},v=>v.toFixed(2)+"x"));
+ if(ty.startsWith("tri_"))out.push(slider("ぼかし",0,1,.01,()=>tr.blur??0,v=>{tr.blur=v},pct));
+ out.push(slider("長さ",.05,6,.01,()=>tr.dur,v=>{tr.dur=v;hitLater(it);if(v>it.dur-.1){if(it.type==="video")tr.dur=Math.max(.05,it.dur-.1);else{it.dur=v+.2;return true}}},sec1));
+ out.push(curveBlock(tr,"速さのグラフ（切り替えの進み方）",play));
+ const hasC=P.fx.some(f=>f.cmb===it.id&&!f.hit),cur=tr.hit||(hasC?"combo":"none");
+ out.push(sec("切り替えの瞬間（ドン・フラッシュなど）"),chips([...(cur==="combo"?[["combo","ワンタップ演出のまま"]]:[]),...HITS],cur,v=>{if(v==="combo")return;snap();setHit(it,v);changed(true);renderPanel();play()}),
+  (tr.hit&&tr.hit!=="none")?slider("瞬間の強さ",.2,1.8,.01,()=>tr.hitA??1,v=>{tr.hitA=v;hitLater(it)},v=>v.toFixed(2)+"x"):null,
+  (tr.hit&&tr.hit!=="none")?slider("瞬間の位置",0,1,.01,()=>tr.hp??hitDef(tr),v=>{tr.hp=v;hitLater(it)},pct):null);
+ return out}
+function pTrans(pn,it){if(!it)return;const tr=it.tin;
+ const pk=(key,v)=>{snap();const o=it[key],was=String(o.type);o.type=v;
+  if(v.startsWith("gather_")&&!was.startsWith("gather_")){o.blur=ST.gblur??.6;o.size=o.size??.45;if(o.dur<.6)o.dur=.8}
+  if(v.startsWith("shape_")&&o.dur<.45)o.dur=.55;if(v.startsWith("wipe_")&&o.dur<.35)o.dur=.45;if(v==="wipe_cut"&&o.dur<.6)o.dur=.7;if(v.startsWith("fade_")&&o.dur<.4)o.dur=.6;
+  if((v.startsWith("shape_")||v.startsWith("wipe_")||v.startsWith("fade_"))&&!was.startsWith(v.split("_")[0]+"_"))o.blur=undefined;
+  if(key==="tin"&&v!=="none")addSE("trans",it.start-.12);if(PAIRSET.has(v)&&o.dur<.2)o.dur=.4;if(v==="glitchsuck"&&o.dur<.6)o.dur=.7;if(v==="jikuu"&&o.dur<.5)o.dur=.6;if(v==="splitsuck"&&o.dur<.6)o.dur=.7;
+  if(v.startsWith("tri_")&&o.dur<1.2){o.dur=1.5;o.blur=0;if(it.dur<1.8&&it.type!=="video")it.dur=1.8}
+  if(key==="tin"&&o.hit&&o.hit!=="none"){if(PAIRSET.has(v))setHit(it,o.hit);else setHit(it,"none")}
+  changed(true);renderPanel();if(key==="tin"&&v!=="none")playRange(it.start-.5,it.start+o.dur+.4)};
+ const play=()=>playRange(it.start-.5,it.start+it.tin.dur+.4),playOut=()=>playRange(it.start+it.dur-it.tout.dur-.4,it.start+it.dur+.3);
  const len=key=>it[key].type!=="none"?slider("長さ",.05,6,.01,()=>it[key].dur,v=>{it[key].dur=v;if(v>it.dur-.1){if(it.type==="video")it[key].dur=Math.max(.05,it.dur-.1);else{it.dur=v+.2;return true}}},sec1):null;
- const hasC=P.fx.some(f=>f.cmb===it.id);
+ const hasC=P.fx.some(f=>f.cmb===it.id),isP=PAIRSET.has(tr.type);
+ let cat=transCat;if(!cat||!PAIR_CAT.find(c=>c[0]===cat)){const f=PAIR_CAT.find(c=>c[1].includes(tr.type));cat=f?f[0]:PAIR_CAT[0][0]}
+ const ids=PAIR_CAT.find(c=>c[0]===cat)[1];
  pn.append(sec("ワンタップ演出（切り替え＋シェイク＋フラッシュ）"),chips(COMBOS.map(([n])=>[n,n]),null,n=>applyCombo(it,n)),
-  hasC?h("div",{class:"btns"},h("button",{class:"btn dng",onclick:()=>{snap();P.fx=P.fx.filter(f=>f.cmb!==it.id);it.tin={type:"none",dur:.35};changed(true);renderPanel()}},"ワンタップ演出を外す")):null,
-  sec("前の写真から切り替える（押すとすぐ試し再生）"),chips(PAIR,it.tin.type,v=>pk("tin",v)),
-  PAIRSET.has(it.tin.type)?slider(it.tin.type.startsWith("gather_")?"拡大の弾み":"強さ",.2,2,.01,()=>it.tin.amt??1,v=>{it.tin.amt=v},v=>v.toFixed(2)+"x"):null,
-  it.tin.type.startsWith("gather_")?h("div",null,sec("来る方向"),chips([["gather_ud","上と下から"],["gather_lr","左と右から"],["gather_4","4すみから"]],it.tin.type,v=>pk("tin",v)),
-   slider("ブレ",0,1.5,.01,()=>it.tin.blur??(ST.gblur??.6),v=>{it.tin.blur=v},pct),slider("最初の大きさ",.15,.9,.01,()=>it.tin.size??.45,v=>{it.tin.size=v},pct),
-   h("p",{class:"note"},"前半で真ん中に小さく集まって、後半で画面いっぱいに広がります。ブレは集まる時の縦（横）ブレと、広がる時のズームブレの量です。")):null,
-  it.tin.type.startsWith("tri_")?slider("ぼかし",0,1,.01,()=>it.tin.blur??0,v=>{it.tin.blur=v},pct):null,
-  PAIRSET.has(it.tin.type)?slider("長さ",.05,6,.01,()=>it.tin.dur,v=>{it.tin.dur=v;if(v>it.dur-.1){if(it.type==="video")it.tin.dur=Math.max(.05,it.dur-.1);else{it.dur=v+.2;return true}}},sec1):null,
-  sec("この写真だけの入り方"),chips(TRANS,PAIRSET.has(it.tin.type)?"":it.tin.type,v=>pk("tin",v)),PAIRSET.has(it.tin.type)?null:len("tin"),
-  it.tin.type!=="none"?h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>playRange(it.start-.5,it.start+it.tin.dur+.4)},"▶ 入りを試す")):null,
+  hasC?h("div",{class:"btns"},h("button",{class:"btn dng",onclick:()=>{snap();P.fx=P.fx.filter(f=>f.cmb!==it.id);P.audio=P.audio.filter(a=>a.cmb!==it.id);it.tin={type:"none",dur:.35};changed(true);renderPanel()}},"ワンタップ演出・瞬間の演出を外す")):null,
+  sec("前の写真から切り替える（押すとすぐ試し再生）"),h("div",{class:"seg",style:"flex-wrap:wrap"},...PAIR_CAT.map(([n])=>h("button",{class:n===cat?"on":"",onclick:()=>{transCat=n;renderPanel()}},n))),h("div",{style:"height:8px"}),
+  chips(ids.map(id=>[id,PL[id]]),tr.type,v=>pk("tin",v)));
+ if(isP)pn.append(...pairOpts(it,pk,play));
+ pn.append(sec("この写真だけの入り方"),chips(TRANS,isP?"":tr.type,v=>pk("tin",v)),isP?null:len("tin"),
+  (!isP&&tr.type!=="none")?curveBlock(tr,"入りの速さのグラフ",play):null,
+  tr.type!=="none"?h("div",{class:"btns"},h("button",{class:"btn pri",onclick:play},"▶ 入りを試す")):null,
   sec("出ていき方"),chips(TRANS,it.tout.type,v=>pk("tout",v)),len("tout"),
-  it.tout.type!=="none"?h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>playRange(it.start+it.dur-it.tout.dur-.4,it.start+it.dur+.3)},"▶ 出を試す")):null,
-  h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>{snap();for(const o of P.items)if(o.type!=="text"&&o!==it){o.tin={...it.tin};o.tout={...it.tout}}changed(true);toast("全部のクリップに同じ切り替えをつけました")}},"全部のクリップに同じのをつける")),
+  it.tout.type!=="none"?curveBlock(it.tout,"出の速さのグラフ",playOut):null,
+  it.tout.type!=="none"?h("div",{class:"btns"},h("button",{class:"btn",onclick:playOut},"▶ 出を試す")):null,
+  h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>{snap();for(const o of P.items)if(o.type!=="text"&&o!==it){o.tin=JSON.parse(JSON.stringify({...it.tin,hit:undefined}));o.tout={...it.tout}}changed(true);toast("全部のクリップに同じ切り替えをつけました")}},"全部のクリップに同じのをつける")),
   h("p",{class:"note"},"タイムラインのつなぎ目の白いボタン（⇄）でもここが開きます。"))}
 function pColor(pn,it){if(!it)return;const c=it.color,g=q=>val(it,clamp(localT(it),0,it.dur))[q],S=(q,v)=>setProp(it,{[q]:v});
  pn.append(sec("プリセット"),chips(CPRE.map(([n])=>[n,n]),null,n=>{snap();const pr=CPRE.find(x=>x[0]===n)[1];Object.assign(c,{c:pr.c,s:pr.s,h:pr.h,sep:pr.sep,inv:pr.inv});setProp(it,{cb:pr.b,cbl:pr.bl});changed(true);renderPanel()}),
@@ -1427,7 +1608,7 @@ function pSet(pn,o){if(!o)return;if(sel.k==="au")return pAudioSet(pn,o);const f=
    slider("ズームの揺れ",0,1,.01,()=>f.zoom||0,v=>{f.zoom=v},pct),slider("回転",0,1,.01,()=>f.rot||0,v=>{f.rot=v},pct),HITM[f.mode]!=null?slider("余韻（揺れが続く長さ）",.1,3,.05,()=>f.len||(f.mode==="hitlong"?1.6:.8),v=>{f.len=v;rp()},sec1):null,slider("入りと抜け",0,.5,.01,()=>f.ramp||0,v=>{f.ramp=v},pct),
    h("p",{class:"note"},"ドン系は「余韻」で揺れが続く長さを変えられます。ドンドン・ドドドンはクリップの長さに等間隔で入ります。回転は0のままだと平行にだけ揺れます。"))}
  if(ty==="dent")pn.append(sec("向き"),chips([["in","へこむ（マイナス）"],["out","ふくらむ（プラス）"]],f.ddir||"in",v=>{snap();f.ddir=v;changed();renderPanel()}),
-  slider("ため（ゆっくり曲がる時間）",.1,3,.05,()=>f.tame??.45,v=>{f.tame=v;if(f.dur<v+.3){f.dur=v+.8;return true}},sec1),slider("強さ（曲がる量）",0,.9,.01,()=>f.dent??.45,v=>{f.dent=v},pct),
+  slider("ため（ゆっくり曲がる時間）",.1,3,.05,()=>f.tame??.45,v=>{f.tame=v;if(f.dur<v+.3){f.dur=v+.8;return true}},sec1),slider("強さ（曲がる量）",0,.9,.01,()=>f.dent??.45,v=>{f.dent=v},pct),slider("中心の広さ",0,.8,.01,()=>f.rad||0,v=>{f.rad=v},pct),chips([["sq","中心：四角っぽい"],["circle","中心：まる"]],f.shp||"sq",v=>{snap();f.shp=v;changed();renderPanel()}),
   slider("フラッシュ",0,1,.01,()=>f.flash??.7,v=>{f.flash=v},pct),slider("余韻（戻った後の揺れ）",.1,3,.05,()=>f.len||.8,v=>{f.len=v},sec1),slider("速さ",1,24,.5,()=>f.hz||11,v=>{f.hz=v},v=>v+"回/秒"),
   slider("ブレ",0,1,.01,()=>f.blur??.7,v=>{f.blur=v},pct),slider("色ズレ",0,1,.01,()=>f.rgb||0,v=>{f.rgb=v},pct),
   h("p",{class:"note"},"時空歪み：画面の四角はそのままで、中だけがゆっくり奥へ曲がっていき、「ため」の時間でぱんっと戻ります。戻る瞬間にドン（1回）とフラッシュが入ります。"));
