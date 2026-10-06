@@ -49,6 +49,7 @@ body.panel #tlbox{height:128px;min-height:128px}
 .ruler{height:22px;position:sticky;top:0;z-index:6;background:var(--panel2)}
 .ruler .lab{z-index:7}
 .tick{position:absolute;top:0;height:100%;border-left:1px solid #3a3550;font-size:10px;color:var(--dim);padding:3px 0 0 3px;pointer-events:none}
+.addrow .lane{display:flex;align-items:center}.addhint{font-size:11px;color:var(--dim);white-space:nowrap;padding-left:8px}.addtr{font-size:20px;color:var(--acc2)!important}.deltr{font-size:14px;color:var(--dim)!important}
 .eye{width:34px;height:34px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
 .eye.off{color:#55506a}
 .clip{position:absolute;top:5px;bottom:5px;border-radius:7px;background:#3a3358 center/cover no-repeat;overflow:hidden;font-size:10px;color:#fff;display:flex;align-items:flex-end;padding:0 6px 3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
@@ -742,6 +743,7 @@ const layB=document.createElement("canvas"),lbx=layB.getContext("2d");
 
 function duration(){let d=0;for(const a of P.items)d=Math.max(d,a.start+a.dur);for(const a of P.fx)d=Math.max(d,a.start+a.dur);for(const a of P.audio)d=Math.max(d,a.start+a.dur);return Math.max(d,.5)}
 function maxTrack(){let m=0;for(const a of P.items)m=Math.max(m,a.track);return m}
+function laneCount(){return Math.max(maxTrack()+1,P.ntr||0,1)}
 function isHidden(tr){return P.hidden.includes(tr)}
 function itemHidden(it){return isHidden(it.track)||(!!it.grp&&(P.hideG||[]).includes(it.grp))}
 function sizeFor(short){const [a,b]=RATIOS[P.ratio];const k=short/Math.min(a,b);return [Math.round(a*k/2)*2,Math.round(b*k/2)*2]}
@@ -1250,18 +1252,21 @@ function buildTL(){
  h+=`<div class="row ruler"><div class="lab"></div>${lane(ticks)}</div>`;
  if(P.fx.length){const ends=[],rows=[];for(const f of [...P.fx].sort((a,b)=>a.start-b.start)){let r=ends.findIndex(e=>e<=f.start+1e-4);if(r<0){r=ends.length;ends.push(0);rows.push("")}ends[r]=f.start+f.dur;rows[r]+=clipHTML("fx",f,"fx",fxLabel(f),null,null,f.type==="camera"?f.kf:null,null,tgCol(f.tg)?`<i class="gt" style="background:${tgCol(f.tg)}"></i>`:"")}
   rows.forEach((c,i)=>{h+=`<div class="row"><div class="lab">FX${rows.length>1?i+1:""}</div>${lane(c)}</div>`})}
- for(let tr=maxTrack();tr>=0;tr--){const hid=isHidden(tr);let c="";
+ for(let tr=laneCount()-1;tr>=0;tr--){const hid=isHidden(tr),empty=!P.items.some(i=>i.track===tr);let c="";
   for(const it of P.items.filter(i=>i.track===tr)){const m=M[it.mid];const lbl=it.type==="text"?it.text:it.type==="shape"?"■ 図形":(m?m.name:"");
    const gg=it.grp&&grpOf(it.grp);const badge=[gg?gg.name:"",it.fxs&&it.fxs.length?"✦"+it.fxs.length:"",(it.speed&&(it.speed.curve!=="const"||it.speed.base!==1))?"⚡":"",it.tin.type!=="none"?"入":"",it.tout.type!=="none"?"出":""].filter(Boolean).join(" ");
    c+=clipHTML("item",it,(it.type==="text"||it.type==="shape"?"tx":"")+(hid?" hid":""),lbl,it.type==="text"?null:m&&m.thumb,badge,it.kf,null,gg?`<i class="gt" style="background:${gg.color}"></i>`:"")}
   for(const it of P.items.filter(i=>i.track===tr&&i.type!=="text"))if(prevOf(it)){const has=it.tin.type!=="none";c+=`<b class="jn${has?" on":""}" data-id="${it.id}" style="left:${it.start*pxs}px">${has?"◆":"⇄"}</b>`}
-  h+=`<div class="row"><div class="lab"><button class="eye${hid?" off":""}" data-tr="${tr}">${hid?ICON.eyeoff:ICON.eye}</button></div>${lane(c)}</div>`}
+  h+=`<div class="row"><div class="lab">${empty&&laneCount()>1?`<button class="eye deltr" data-tr="${tr}" title="このレーンを消す">✕</button>`:`<button class="eye${hid?" off":""}" data-tr="${tr}">${hid?ICON.eyeoff:ICON.eye}</button>`}</div>${lane(c)}</div>`}
+ h+=`<div class="row addrow"><div class="lab"><button class="eye addtr" title="レーンを追加">＋</button></div>${lane('<span class="addhint">＋でレーン（段）を追加・空いたレーンは✕で消せます</span>')}</div>`;
  if(P.audio.length){let c="";for(const a of P.audio){const m=M[a.mid]||{};c+=clipHTML("au",a,"au","♪ "+(m.name||""),m.wave||null,null,null,m.wave?`background-size:${(m.dur||a.dur)*pxs}px 100%;background-position:${-a.trimIn*pxs}px 0;background-repeat:no-repeat;`:"")}h+=`<div class="row"><div class="lab">♪</div>${lane(c)}</div>`}
  tlin.style.width=(LAB+PAD+laneW)+"px";tlin.innerHTML=h;setScroll()}
 function objOf(k,id){return k==="item"?P.items.find(i=>i.id===id):k==="fx"?P.fx.find(i=>i.id===id):P.audio.find(i=>i.id===id)}
 function select(k,id){needDraw=true;grpPick=null;document.body.classList.remove("picking");ovl._k="";const keep=k==="item"&&sel&&sel.k==="item"&&["move","color","trans"].includes(tool);sel=k?{k,id}:null;if(!keep)tool=null;if(sel&&sel.k!=="item")tool=sel.k==="fx"&&objOf(k,id).type==="camera"?"move":"set";if(keep&&objOf(k,id).type==="text"&&tool!=="move")tool=null;setBodyPanel();buildTL();renderNav();renderPanel();updKfBtn()}
 let drag=null;
 tl.addEventListener("pointerdown",e=>{
+ const at=e.target.closest(".addtr");if(at){snap();const n=laneCount();for(const o of P.items)o.track++;P.hidden=P.hidden.map(t=>t+1);P.ntr=n+1;refresh(false);toast("一番下にレーンを追加しました（クリップを上下に動かして入れてね）");return}
+ const dt=e.target.closest(".deltr");if(dt){const tr=+dt.dataset.tr;if(P.items.some(i=>i.track===tr))return;snap();for(const o of P.items)if(o.track>tr)o.track--;P.hidden=P.hidden.filter(x=>x!==tr).map(x=>x>tr?x-1:x);P.ntr=Math.max(0,laneCount()-1);refresh(false);return}
  const eye=e.target.closest(".eye");if(eye){snap();const tr=+eye.dataset.tr;P.hidden=isHidden(tr)?P.hidden.filter(x=>x!==tr):[...P.hidden,tr];syncMedia();refresh(false);return}
  const jn=e.target.closest(".jn");if(jn){drag={tapOnly:true,jn:jn.dataset.id,x0:e.clientX,y0:e.clientY};return}
  const c=e.target.closest(".clip");
@@ -1278,7 +1283,7 @@ window.addEventListener("pointermove",e=>{
  if(!drag.moved){if(Math.abs(e.clientX-drag.x0)<5&&Math.abs(dy)<8)return;drag.moved=true;snap()}
  const o=drag.o;
  if(drag.mode==="m"){let s=Math.max(0,drag.s0+dx);const s2=snapT(s,o),e2=snapT(s+o.dur,o)-o.dur;s=Math.abs(s2-s)<=Math.abs(e2-s)?s2:e2;o.start=Math.max(0,s);
-  if(drag.k==="item"){const dtr=-Math.round(dy/ROW);o.track=clamp(drag.tr0+dtr,0,maxTrackExcept(o)+1);drag.el.style.transform=`translateY(${-(o.track-drag.tr0)*ROW}px)`}}
+  if(drag.k==="item"){const dtr=-Math.round(dy/ROW);o.track=clamp(drag.tr0+dtr,0,Math.max(maxTrackExcept(o)+1,laneCount()-1));drag.el.style.transform=`translateY(${-(o.track-drag.tr0)*ROW}px)`}}
  else if(drag.mode==="r"){let end=snapT(drag.s0+drag.d0+dx,o);let d=Math.max(.1,end-o.start);if(o.type==="video"||drag.k==="au"){const md=(M[o.mid]||{}).dur||999;d=Math.min(d,(md-(o.trimIn||0))/(o.type==="video"?avgSpeed(o):1))}o.dur=d}
  else{let s=snapT(drag.s0+dx,o);s=Math.max(0,Math.min(s,drag.s0+drag.d0-.1));let delta=s-drag.s0;if(o.type==="video"||drag.k==="au"){delta=Math.max(delta,-drag.ti0);o.trimIn=Math.max(0,drag.ti0+delta*(o.type==="video"?speedAt(o,0):1))}o.start=drag.s0+delta;o.dur=drag.d0-delta;
   if(drag.kf0)o.kf.forEach((q,i)=>q.t=drag.kf0[i]-delta)}
@@ -1291,7 +1296,7 @@ window.addEventListener("pointerup",e=>{if(!drag)return;const d=drag;drag=null;
   select(d.k,d.id);return}
  if(d.moved){normalizeTracks();syncMedia();refresh(true)}});
 window.addEventListener("pointercancel",()=>{if(drag&&drag.moved){normalizeTracks();refresh(true)}drag=null});
-function normalizeTracks(){const used=[...new Set(P.items.map(i=>i.track))].sort((a,b)=>a-b);const map={};used.forEach((t,i)=>map[t]=i);P.items.forEach(i=>i.track=map[i.track]);P.hidden=P.hidden.filter(h=>h in map).map(h=>map[h])}
+function normalizeTracks(){P.ntr=Math.max(P.ntr||0,maxTrack()+1);P.hidden=P.hidden.filter(h=>h<P.ntr)}
 let pz=null;
 tl.addEventListener("touchstart",e=>{if(e.touches.length===2){pz={d0:Math.max(20,Math.abs(e.touches[0].clientX-e.touches[1].clientX)),p0:pxs};drag=null}},{passive:true});
 tl.addEventListener("touchmove",e=>{if(pz&&e.touches.length===2){e.preventDefault();const d=Math.abs(e.touches[0].clientX-e.touches[1].clientX),np=clamp(pz.p0*d/pz.d0,12,400);if(Math.abs(np-pxs)>1){pxs=np;buildTL()}}},{passive:false});
