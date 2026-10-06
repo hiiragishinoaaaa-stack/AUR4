@@ -743,7 +743,10 @@ const layB=document.createElement("canvas"),lbx=layB.getContext("2d");
 
 function duration(){let d=0;for(const a of P.items)d=Math.max(d,a.start+a.dur);for(const a of P.fx)d=Math.max(d,a.start+a.dur);for(const a of P.audio)d=Math.max(d,a.start+a.dur);return Math.max(d,.5)}
 function maxTrack(){let m=0;for(const a of P.items)m=Math.max(m,a.track);return m}
-function laneCount(){return Math.max(maxTrack()+1,P.ntr||0,1)}
+function laneCount(){let m=maxTrack()+1;for(const f of P.fx)if(f.track!=null)m=Math.max(m,f.track+1);return Math.max(m,P.ntr||0,1)}
+function laneBusy(tr,s,e,ex){return P.items.some(i=>i!==ex&&i.track===tr&&i.start<e-1e-4&&i.start+i.dur>s+1e-4)||P.fx.some(g=>g!==ex&&g.track===tr&&g.start<e-1e-4&&g.start+g.dur>s+1e-4)}
+function placeFx(f){const top=laneCount();let tr=top;for(let k=top-1;k>=0;k--){if(P.items.some(i=>i.track===k))break;if(!laneBusy(k,f.start,f.start+f.dur,f))tr=k}f.track=tr;P.ntr=Math.max(P.ntr||0,tr+1)}
+function laneEmpty(tr){return !P.items.some(i=>i.track===tr)&&!P.fx.some(f=>f.track===tr)}
 function isHidden(tr){return P.hidden.includes(tr)}
 function itemHidden(it){return isHidden(it.track)||(!!it.grp&&(P.hideG||[]).includes(it.grp))}
 function sizeFor(short){const [a,b]=RATIOS[P.ratio];const k=short/Math.min(a,b);return [Math.round(a*k/2)*2,Math.round(b*k/2)*2]}
@@ -805,14 +808,15 @@ const DB={db:null,
 let saveTimer=0;
 let curId=null,projects=[];
 function save(){clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,500)}
-async function saveNow(){clearTimeout(saveTimer);if(!curId)return;await DB.put("kv","p:"+curId,JSON.stringify(P));const e=projects.find(p=>p.id===curId);if(e){e.updated=Date.now();if(P.name)e.name=P.name}await DB.put("kv","projects",JSON.stringify(projects))}
+let lastBk=0;async function saveNow(){clearTimeout(saveTimer);if(!curId)return;const js=JSON.stringify(P);await DB.put("kv","p:"+curId,js);
+ if(Date.now()-lastBk>150000&&(P.items.length||P.fx.length||P.audio.length)){lastBk=Date.now();try{let bk=[];try{bk=JSON.parse(await DB.get("kv","bk:"+curId)||"[]")}catch(e){}bk.unshift({t:Date.now(),s:js});bk=bk.slice(0,4);await DB.put("kv","bk:"+curId,JSON.stringify(bk))}catch(e){}}const e=projects.find(p=>p.id===curId);if(e){e.updated=Date.now();if(P.name)e.name=P.name}await DB.put("kv","projects",JSON.stringify(projects))}
 async function loadProject(id){const s=await DB.get("kv","p:"+id);let p=null;try{p=s?JSON.parse(s):null}catch(e){}if(!p||!(p.v===2||p.v===3))p=blank();p=migrate(p);
  if(playing)pause();ovShow("読み込み中…");for(const mid in p.media)if(!M[mid]){const b=await DB.get("media",mid);if(b)await loadMedia(mid,b,p.media[mid])}
- p.items=p.items.filter(i=>i.type==="text"||i.type==="shape"||M[i.mid]);p.audio=p.audio.filter(a=>M[a.mid]);for(const i of p.items)if(i.type==="text")loadFont(i.font);
+ const okI=i=>i.type==="text"||i.type==="shape"||M[i.mid];const lost=[...(p._lost||[]),...p.items.filter(i=>!okI(i))];p.items=[...p.items.filter(okI),...lost.filter(okI)];p._lost=lost.filter(i=>!okI(i));p.audio=p.audio.filter(a=>M[a.mid]);for(const i of p.items)if(i.type==="text")loadFont(i.font);
  P=p;curId=id;await DB.put("kv","cur",id);undoS.length=0;redoS.length=0;updUndo();sel=null;tool=null;T=0;pruneEls();setBodyPanel();resizeCanvas();ovHide();renderNav();refresh(true);syncMedia()}
 async function newProjectEntry(){await saveNow();const id=uid(),p=blank();p.name="プロジェクト "+(projects.length+1);projects.unshift({id,name:p.name,updated:Date.now()});
  await DB.put("kv","p:"+id,JSON.stringify(p));await DB.put("kv","projects",JSON.stringify(projects));await loadProject(id);toast("新しいプロジェクトを作りました")}
-async function gcMedia(){const keep=new Set(LIB.map(e=>e.id));for(const q of projects){const s=q.id===curId?JSON.stringify(P):await DB.get("kv","p:"+q.id);if(!s)continue;try{Object.keys(JSON.parse(s).media||{}).forEach(k=>keep.add(k))}catch(e){}}
+async function gcMedia(){const keep=new Set(LIB.map(e=>e.id));try{for(const k of (await DB.keys("kv")).map(String).filter(k=>k.startsWith("bk:"))){for(const b of JSON.parse(await DB.get("kv",k)||"[]")){try{Object.keys(JSON.parse(b.s).media||{}).forEach(m=>keep.add(m))}catch(e){}}}}catch(e){}for(const q of projects){const s=q.id===curId?JSON.stringify(P):await DB.get("kv","p:"+q.id);if(!s)continue;try{Object.keys(JSON.parse(s).media||{}).forEach(k=>keep.add(k))}catch(e){}}
  for(const k of await DB.keys("media"))if(!keep.has(k)){await DB.del("media",k);delete M[k]}}
 function migrate(p){
  if(p.v===2){for(const it of p.items){const m=it.motion||{a:{s:1,x:0,y:0,r:0},b:{s:1,x:0,y:0,r:0},ease:"out"};const o=it.opacity??1;
@@ -1157,17 +1161,33 @@ function renderFrame(t,C,X){
  X.setTransform(1,0,0,1,0,0);X.globalAlpha=1;X.filter="none";X.globalCompositeOperation="source-over";
  const items=P.items.filter(i=>!itemHidden(i)&&t>=i.start&&t<i.start+i.dur).sort((a,b)=>a.track-b.track);
  drawBg(t,X,W,H,items);
- const act=P.fx.filter(f=>t>=f.start&&t<f.start+f.dur);
- let sx=0,sy=0,ss=1,vx=0,vy=0,blur=0,sz=0,sr=0,rgbS=0;
- for(const f of act){if(f.tg)continue;if(f.type==="shake"||(f.type==="dent"&&t>=f.start+(f.tame??.45))){const g=f.type==="dent"?{...f,start:f.start+(f.tame??.45),mode:"hit"}:f;const o=shakeOff(g,t,W,H),o2=shakeOff(g,t-1/60,W,H);sx+=o[0];sy+=o[1];ss=Math.max(ss,o[2]);sz+=o[3];sr+=o[4];vx+=o[0]-o2[0];vy+=o[1]-o2[1];blur=Math.max(blur,f.blur??.6);rgbS=Math.max(rgbS,f.rgb||0)}
+ const actAll=P.fx.filter(f=>t>=f.start&&t<f.start+f.dur&&!(f.track!=null&&isHidden(f.track)));
+ prepGX(t,W,H,items);
+ const ftr=f=>f.track??1e9;
+ const bounds=[...new Set(actAll.filter(f=>!f.tg).map(ftr))].sort((a,b)=>a-b);
+ let lo=-Infinity;
+ /* レイヤー順：エフェクトは「自分より下のレーン（同じレーンも含む）」にだけかかる */
+ for(const bd of [...bounds,Infinity]){
+  const seg=items.filter(it=>it.track>lo&&it.track<=bd);
+  if(seg.length)drawSeg(seg,actAll.filter(f=>!f.tg&&ftr(f)>=bd),t,C,X,W,H);
+  if(bd!==Infinity)applyPost(actAll.filter(f=>ftr(f)===bd),t,C,X,W,H);
+  lo=bd}}
+function drawSeg(seg,act,t,C,X,W,H){
+ let sx=0,sy=0,ss=1,sz=0,sr=0;
+ for(const f of act){if(f.type==="shake"||(f.type==="dent"&&t>=f.start+(f.tame??.45))){const g=f.type==="dent"?{...f,start:f.start+(f.tame??.45),mode:"hit"}:f;const o=shakeOff(g,t,W,H);sx+=o[0];sy+=o[1];ss=Math.max(ss,o[2]);sz+=o[3];sr+=o[4]}
   else if(f.type==="pulse"){const p=clamp((t-f.start)/f.dur),n=Math.max(1,f.count||1),fr=(p*n)%1;ss*=1+(f.amount??.5)*.3*Math.pow(1-fr,3)}}
  X.save();X.translate(W/2+sx,H/2+sy);X.rotate(sr);X.scale(ss*(1+sz),ss*(1+sz));X.translate(-W/2,-H/2);
- let gSq=null;for(const f of act)if(f.type==="squash"&&!f.tg){const ax=W/2,ay=f.anc==="t"?0:f.anc==="c"?H/2:H,[kx,ky]=sqK(f,t);X.translate(ax,ay);X.scale(kx,ky);X.translate(-ax,-ay);if((f.blur||0)>0)gSq={f,ax,ay,kx,ky}}
- prepGX(t,W,H,items);
- const cam=act.find(f=>f.type==="camera"&&!f.tg);let camBlur=0;if(cam){const cq=val(cam,t-cam.start);X.translate(W/2,H/2);X.scale(cq.s,cq.s);X.rotate(cq.r*Math.PI/180);X.translate(-W/2-cq.x*W,-H/2-cq.y*H);camBlur=cq.cbl||0}
- for(const it of items){const post=postOf(it,t);if(!post.length){drawFull(it,t,X,W,H);continue}
+ for(const f of act)if(f.type==="squash"){const ax=W/2,ay=f.anc==="t"?0:f.anc==="c"?H/2:H,[kx,ky]=sqK(f,t);X.translate(ax,ay);X.scale(kx,ky);X.translate(-ax,-ay)}
+ const cam=act.find(f=>f.type==="camera");if(cam){const cq=val(cam,t-cam.start);X.translate(W/2,H/2);X.scale(cq.s,cq.s);X.rotate(cq.r*Math.PI/180);X.translate(-W/2-cq.x*W,-H/2-cq.y*H)}
+ for(const it of seg){const post=postOf(it,t);if(!post.length){drawFull(it,t,X,W,H);continue}
   prepLay(stC,stx,W,H);drawFull(it,t,stx,W,H);const out=postChain(stC,post,W,H,t);const bl=it.blend&&it.blend!=="source-over"?it.blend:null;if(bl)X.globalCompositeOperation=bl;X.drawImage(out,0,0,W,H);X.globalCompositeOperation="source-over"}
- X.restore();X.setTransform(1,0,0,1,0,0);X.filter="none";X.globalCompositeOperation="source-over";
+ X.restore();X.setTransform(1,0,0,1,0,0);X.filter="none";X.globalCompositeOperation="source-over"}
+function applyPost(act,t,C,X,W,H){
+ let vx=0,vy=0,blur=0,rgbS=0,camBlur=0,gSq=null;
+ for(const f of act){if(f.tg)continue;
+  if(f.type==="shake"||(f.type==="dent"&&t>=f.start+(f.tame??.45))){const g=f.type==="dent"?{...f,start:f.start+(f.tame??.45),mode:"hit"}:f;const o=shakeOff(g,t,W,H),o2=shakeOff(g,t-1/60,W,H);vx+=o[0]-o2[0];vy+=o[1]-o2[1];blur=Math.max(blur,f.blur??.6);rgbS=Math.max(rgbS,f.rgb||0)}
+  else if(f.type==="camera"){camBlur=Math.max(camBlur,val(f,t-f.start).cbl||0)}
+  else if(f.type==="squash"&&(f.blur||0)>0){const ax=W/2,ay=f.anc==="t"?0:f.anc==="c"?H/2:H,[kx,ky]=sqK(f,t);gSq={f,ax,ay,kx,ky}}}
  if(camBlur>.3){postCopy(C);X.filter=`blur(${(camBlur*W/540).toFixed(1)}px)`;X.drawImage(buf,0,0);X.filter="none"}
  if(gSq){const [k0x,k0y]=sqK(gSq.f,t-.035),rx=k0x/gSq.kx,ry=k0y/gSq.ky;if(Math.abs(rx-1)*W+Math.abs(ry-1)*H>1.5){postCopy(C);X.save();const n=5;for(let i=1;i<=n;i++){const u=i/n,qx=1+(rx-1)*u,qy=1+(ry-1)*u;X.setTransform(qx,0,0,qy,gSq.ax*(1-qx),gSq.ay*(1-qy));X.globalAlpha=.17*gSq.f.blur;X.drawImage(buf,0,0)}X.restore();X.globalAlpha=1}}
  const spd2=Math.hypot(vx,vy);
@@ -1250,23 +1270,23 @@ function buildTL(){
  const lane=(inner,attr="")=>`<div class="lane" ${attr} style="margin-left:${PAD}px;width:${laneW}px">${inner}</div>`;
  const step=pxs>=60?1:pxs>=25?2:5;let ticks="";for(let s=0;s<=d+step;s+=step)ticks+=`<div class="tick" style="left:${s*pxs}px">${s}s</div>`;for(const mk of P.marks||[])ticks+=`<i class="mk" style="left:${mk*pxs}px"></i>`;
  h+=`<div class="row ruler"><div class="lab"></div>${lane(ticks)}</div>`;
- if(P.fx.length){const ends=[],rows=[];for(const f of [...P.fx].sort((a,b)=>a.start-b.start)){let r=ends.findIndex(e=>e<=f.start+1e-4);if(r<0){r=ends.length;ends.push(0);rows.push("")}ends[r]=f.start+f.dur;rows[r]+=clipHTML("fx",f,"fx",fxLabel(f),null,null,f.type==="camera"?f.kf:null,null,tgCol(f.tg)?`<i class="gt" style="background:${tgCol(f.tg)}"></i>`:"")}
-  rows.forEach((c,i)=>{h+=`<div class="row"><div class="lab">FX${rows.length>1?i+1:""}</div>${lane(c)}</div>`})}
- for(let tr=laneCount()-1;tr>=0;tr--){const hid=isHidden(tr),empty=!P.items.some(i=>i.track===tr);let c="";
+ for(const f of P.fx)if(f.track==null)placeFx(f);
+ for(let tr=laneCount()-1;tr>=0;tr--){const hid=isHidden(tr),empty=laneEmpty(tr);let c="";
+  for(const f of P.fx.filter(f=>f.track===tr))c+=clipHTML("fx",f,"fx"+(hid?" hid":""),fxLabel(f),null,null,f.type==="camera"?f.kf:null,null,tgCol(f.tg)?`<i class="gt" style="background:${tgCol(f.tg)}"></i>`:"");
   for(const it of P.items.filter(i=>i.track===tr)){const m=M[it.mid];const lbl=it.type==="text"?it.text:it.type==="shape"?"■ 図形":(m?m.name:"");
    const gg=it.grp&&grpOf(it.grp);const badge=[gg?gg.name:"",it.fxs&&it.fxs.length?"✦"+it.fxs.length:"",(it.speed&&(it.speed.curve!=="const"||it.speed.base!==1))?"⚡":"",it.tin.type!=="none"?"入":"",it.tout.type!=="none"?"出":""].filter(Boolean).join(" ");
    c+=clipHTML("item",it,(it.type==="text"||it.type==="shape"?"tx":"")+(hid?" hid":""),lbl,it.type==="text"?null:m&&m.thumb,badge,it.kf,null,gg?`<i class="gt" style="background:${gg.color}"></i>`:"")}
   for(const it of P.items.filter(i=>i.track===tr&&i.type!=="text"))if(prevOf(it)){const has=it.tin.type!=="none";c+=`<b class="jn${has?" on":""}" data-id="${it.id}" style="left:${it.start*pxs}px">${has?"◆":"⇄"}</b>`}
   h+=`<div class="row"><div class="lab">${empty&&laneCount()>1?`<button class="eye deltr" data-tr="${tr}" title="このレーンを消す">✕</button>`:`<button class="eye${hid?" off":""}" data-tr="${tr}">${hid?ICON.eyeoff:ICON.eye}</button>`}</div>${lane(c)}</div>`}
- h+=`<div class="row addrow"><div class="lab"><button class="eye addtr" title="レーンを追加">＋</button></div>${lane('<span class="addhint">＋でレーン（段）を追加・空いたレーンは✕で消せます</span>')}</div>`;
+ h+=`<div class="row addrow"><div class="lab"><button class="eye addtr" title="レーンを追加">＋</button></div>${lane('<span class="addhint">＋でレーン追加・✕で空レーン削除・エフェクトは自分より下のレーンにかかります</span>')}</div>`;
  if(P.audio.length){let c="";for(const a of P.audio){const m=M[a.mid]||{};c+=clipHTML("au",a,"au","♪ "+(m.name||""),m.wave||null,null,null,m.wave?`background-size:${(m.dur||a.dur)*pxs}px 100%;background-position:${-a.trimIn*pxs}px 0;background-repeat:no-repeat;`:"")}h+=`<div class="row"><div class="lab">♪</div>${lane(c)}</div>`}
  tlin.style.width=(LAB+PAD+laneW)+"px";tlin.innerHTML=h;setScroll()}
 function objOf(k,id){return k==="item"?P.items.find(i=>i.id===id):k==="fx"?P.fx.find(i=>i.id===id):P.audio.find(i=>i.id===id)}
 function select(k,id){needDraw=true;grpPick=null;document.body.classList.remove("picking");ovl._k="";const keep=k==="item"&&sel&&sel.k==="item"&&["move","color","trans"].includes(tool);sel=k?{k,id}:null;if(!keep)tool=null;if(sel&&sel.k!=="item")tool=sel.k==="fx"&&objOf(k,id).type==="camera"?"move":"set";if(keep&&objOf(k,id).type==="text"&&tool!=="move")tool=null;setBodyPanel();buildTL();renderNav();renderPanel();updKfBtn()}
 let drag=null;
 tl.addEventListener("pointerdown",e=>{
- const at=e.target.closest(".addtr");if(at){snap();const n=laneCount();for(const o of P.items)o.track++;P.hidden=P.hidden.map(t=>t+1);P.ntr=n+1;refresh(false);toast("一番下にレーンを追加しました（クリップを上下に動かして入れてね）");return}
- const dt=e.target.closest(".deltr");if(dt){const tr=+dt.dataset.tr;if(P.items.some(i=>i.track===tr))return;snap();for(const o of P.items)if(o.track>tr)o.track--;P.hidden=P.hidden.filter(x=>x!==tr).map(x=>x>tr?x-1:x);P.ntr=Math.max(0,laneCount()-1);refresh(false);return}
+ const at=e.target.closest(".addtr");if(at){snap();const n=laneCount();for(const o of P.items)o.track++;for(const f of P.fx)if(f.track!=null)f.track++;P.hidden=P.hidden.map(t=>t+1);P.ntr=n+1;refresh(false);toast("一番下にレーンを追加しました（クリップを上下に動かして入れてね）");return}
+ const dt=e.target.closest(".deltr");if(dt){const tr=+dt.dataset.tr;if(!laneEmpty(tr))return;snap();for(const o of P.items)if(o.track>tr)o.track--;for(const f of P.fx)if(f.track!=null&&f.track>tr)f.track--;P.hidden=P.hidden.filter(x=>x!==tr).map(x=>x>tr?x-1:x);P.ntr=Math.max(0,laneCount()-1);refresh(false);return}
  const eye=e.target.closest(".eye");if(eye){snap();const tr=+eye.dataset.tr;P.hidden=isHidden(tr)?P.hidden.filter(x=>x!==tr):[...P.hidden,tr];syncMedia();refresh(false);return}
  const jn=e.target.closest(".jn");if(jn){drag={tapOnly:true,jn:jn.dataset.id,x0:e.clientX,y0:e.clientY};return}
  const c=e.target.closest(".clip");
@@ -1283,7 +1303,7 @@ window.addEventListener("pointermove",e=>{
  if(!drag.moved){if(Math.abs(e.clientX-drag.x0)<5&&Math.abs(dy)<8)return;drag.moved=true;snap()}
  const o=drag.o;
  if(drag.mode==="m"){let s=Math.max(0,drag.s0+dx);const s2=snapT(s,o),e2=snapT(s+o.dur,o)-o.dur;s=Math.abs(s2-s)<=Math.abs(e2-s)?s2:e2;o.start=Math.max(0,s);
-  if(drag.k==="item"){const dtr=-Math.round(dy/ROW);o.track=clamp(drag.tr0+dtr,0,Math.max(maxTrackExcept(o)+1,laneCount()-1));drag.el.style.transform=`translateY(${-(o.track-drag.tr0)*ROW}px)`}}
+  if((drag.k==="item"||drag.k==="fx")&&drag.tr0!=null){const dtr=-Math.round(dy/ROW);o.track=clamp(drag.tr0+dtr,0,Math.max(maxTrackExcept(o)+1,laneCount()-1,drag.tr0));drag.el.style.transform=`translateY(${-(o.track-drag.tr0)*ROW}px)`}}
  else if(drag.mode==="r"){let end=snapT(drag.s0+drag.d0+dx,o);let d=Math.max(.1,end-o.start);if(o.type==="video"||drag.k==="au"){const md=(M[o.mid]||{}).dur||999;d=Math.min(d,(md-(o.trimIn||0))/(o.type==="video"?avgSpeed(o):1))}o.dur=d}
  else{let s=snapT(drag.s0+dx,o);s=Math.max(0,Math.min(s,drag.s0+drag.d0-.1));let delta=s-drag.s0;if(o.type==="video"||drag.k==="au"){delta=Math.max(delta,-drag.ti0);o.trimIn=Math.max(0,drag.ti0+delta*(o.type==="video"?speedAt(o,0):1))}o.start=drag.s0+delta;o.dur=drag.d0-delta;
   if(drag.kf0)o.kf.forEach((q,i)=>q.t=drag.kf0[i]-delta)}
@@ -1296,7 +1316,7 @@ window.addEventListener("pointerup",e=>{if(!drag)return;const d=drag;drag=null;
   select(d.k,d.id);return}
  if(d.moved){normalizeTracks();syncMedia();refresh(true)}});
 window.addEventListener("pointercancel",()=>{if(drag&&drag.moved){normalizeTracks();refresh(true)}drag=null});
-function normalizeTracks(){P.ntr=Math.max(P.ntr||0,maxTrack()+1);P.hidden=P.hidden.filter(h=>h<P.ntr)}
+function normalizeTracks(){P.ntr=Math.max(P.ntr||0,laneCount());P.hidden=P.hidden.filter(h=>h<P.ntr)}
 let pz=null;
 tl.addEventListener("touchstart",e=>{if(e.touches.length===2){pz={d0:Math.max(20,Math.abs(e.touches[0].clientX-e.touches[1].clientX)),p0:pxs};drag=null}},{passive:true});
 tl.addEventListener("touchmove",e=>{if(pz&&e.touches.length===2){e.preventDefault();const d=Math.abs(e.touches[0].clientX-e.touches[1].clientX),np=clamp(pz.p0*d/pz.d0,12,400);if(Math.abs(np-pxs)>1){pxs=np;buildTL()}}},{passive:false});
@@ -1700,9 +1720,9 @@ function pShape(pn,it){if(!it||it.type!=="shape")return;pn.append(chips([["rect"
 let SB=null,USER=null,ROLE="guest";
 let LIB=[],libCat="se",srvAssets=null;
 const LIBCAT=[["se","効果音"],["music","音楽"],["overlay","オーバーレイ"],["bg","背景"],["other","その他"],["shared","みんなの素材"]];
-async function libLoad(){try{LIB=JSON.parse(await DB.get("kv","library")||"[]")}catch(e){LIB=[]}}
+async function libLoad(){try{LIB=JSON.parse(await DB.get("kv","library")||"[]")}catch(e){LIB=[]}let ch=false;for(const e of LIB)if(e.type==="video"&&(e.cat==="se"||e.cat==="music")){e.type="audio";ch=true}if(ch)libSave()}
 function libSave(){DB.put("kv","library",JSON.stringify(LIB))}
-async function libAddBlob(blob,name,cat,type){const id="lib_"+uid();await DB.put("media",id,blob);LIB.unshift({id,name,cat,type,at:Date.now()});libSave();return id}
+async function libAddBlob(blob,name,cat,type){if(type==="video"&&(cat==="se"||cat==="music"))type="audio";const id="lib_"+uid();await DB.put("media",id,blob);LIB.unshift({id,name,cat,type,at:Date.now()});libSave();return id}
 async function ensureMedia(id,meta){if(M[id])return M[id];const b=await DB.get("media",id);if(!b)return null;return loadMedia(id,b,meta)}
 async function libInsert(e){ovShow("読み込み中…");const meta={type:e.type,name:e.name};const m=await ensureMedia(e.id,meta);ovHide();if(!m)return toast("読み込めませんでした");snap();P.media[e.id]=meta;
  if(e.type==="audio")P.audio.push({id:uid(),mid:e.id,start:T,dur:Math.max(.1,Math.min(m.dur,e.cat==="se"?m.dur:Math.max(1,duration()-T))),trimIn:0,vol:1,fin:0,fout:0});
@@ -1735,7 +1755,8 @@ let pvAudio=null;async function previewAudio(id){const b=await DB.get("media",id
 async function libDel(e){if(!confirm(`「${e.name}」を素材から消しますか？`))return;LIB=LIB.filter(x=>x!==e);libSave();for(const k in ST.se)if(ST.se[k]===e.id)delete ST.se[k];saveST();await gcMedia();renderPanel()}
 function libRow(e,add,del){const ic=e.type==="audio"?"♪":e.type==="video"?"▶":"▣";
  return h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:7px 0"},h("span",{style:"width:24px;text-align:center;color:var(--acc2)"},ic),h("span",{style:"flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px"},e.name),
-  e.type==="audio"&&!String(e.id).startsWith("srv_")?h("button",{class:"btn",style:"padding:6px 10px",onclick:()=>previewAudio(e.id)},"▶"):null,h("button",{class:"btn pri",style:"padding:6px 12px",onclick:add},"追加"),del?h("button",{class:"btn dng",style:"padding:6px 10px",onclick:del},"×"):null)}
+  e.type==="audio"&&!String(e.id).startsWith("srv_")?h("button",{class:"btn",style:"padding:6px 10px",onclick:()=>previewAudio(e.id)},"▶"):null,
+  del?h("button",{class:"btn",style:"padding:6px 10px",onclick:()=>{const n=prompt("素材の名前",e.name);if(!n||!n.trim())return;e.name=n.trim();libSave();if(M[e.id])M[e.id].name=e.name;if(P.media[e.id]){P.media[e.id].name=e.name;changed(true)}renderPanel()}},"✎"):null,h("button",{class:"btn pri",style:"padding:6px 12px",onclick:add},"追加"),del?h("button",{class:"btn dng",style:"padding:6px 10px",onclick:del},"×"):null)}
 async function loadShared(){try{const {data}=await SB.from("assets").select("*").order("created_at",{ascending:false});srvAssets=data||[]}catch(e){srvAssets=[]}renderPanel()}
 async function fetchShared(a){const id="srv_"+a.id;let e=LIB.find(x=>x.id===id);if(!e){ovShow("ダウンロード中…");try{const r=await fetch(a.url);const b=await r.blob();await DB.put("media",id,b);e={id,name:a.name,cat:"shared",type:a.type,at:Date.now()};LIB.unshift(e);libSave()}catch(x){ovHide();return toast("ダウンロードできませんでした")}ovHide()}libInsert(e)}
 function pLib(pn){pn.append(chips(LIBCAT,libCat,v=>{libCat=v;renderPanel()}));
@@ -1929,12 +1950,18 @@ function splitCore(it){const c=JSON.parse(JSON.stringify(it));c.id=uid();const c
  it.dur=cut;it.tout={type:"none",dur:.3};P.items.push(c);return c}
 function splitAt(it){if(!(T>it.start+.05&&T<it.start+it.dur-.05)){toast("再生位置をクリップの上に合わせてね");return}snap();const c=splitCore(it);refresh(false);select("item",c.id)}
 function splitAudio(a){if(!(T>a.start+.05&&T<a.start+a.dur-.05)){toast("再生位置を音の上に合わせてね");return}snap();const c={...a,id:uid()},cut=T-a.start;c.start=T;c.dur=a.dur-cut;c.trimIn=a.trimIn+cut;a.dur=cut;P.audio.push(c);refresh(false);select("au",c.id)}
-function pProj(pn){pn.append(h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>newProjectEntry()},"＋ 新しいプロジェクト")));
+function pProj(pn){pn.append(h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>newProjectEntry()},"＋ 新しいプロジェクト"),h("button",{class:"btn",onclick:showBackups},"自動保存から戻す")));
  for(const p of projects){const cur=p.id===curId,d=new Date(p.updated||Date.now());
   pn.append(h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0"},
    h("div",{style:"flex:1;min-width:0"},h("div",{style:`font-weight:${cur?700:400};color:${cur?"var(--acc2)":"inherit"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`},(cur?"● ":"")+p.name),h("div",{class:"note",style:"margin:2px 0 0"},`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`)),
    cur?null:h("button",{class:"btn",onclick:async()=>{await saveNow();await loadProject(p.id)}},"開く"),
    h("button",{class:"btn",onclick:()=>renameProj(p)},"名前"),h("button",{class:"btn",onclick:()=>dupProj(p)},"複製"),h("button",{class:"btn dng",onclick:()=>delProj(p)},"削除")))}}
+async function showBackups(){const pn=$("#panel");let rows=[];try{for(const k of (await DB.keys("kv")).map(String).filter(k=>k.startsWith("bk:"))){const id=k.slice(3),pj=projects.find(q=>q.id===id);for(const b of JSON.parse(await DB.get("kv",k)||"[]"))rows.push({id,name:pj?pj.name:"消えたプロジェクト",b})}}catch(e){}
+ rows.sort((a,b)=>b.b.t-a.b.t);pn.innerHTML="";pn.append(h("div",{class:"btns"},h("button",{class:"btn",onclick:renderPanel},"← 戻る")),h("p",{class:"note",style:"margin-top:0"},"編集中は約2〜3分ごとに、プロジェクトごとに最大4つまで自動で控えを取っています。選ぶと新しいプロジェクトとして戻します（今のは消えません）。"));
+ if(!rows.length)pn.append(h("p",{class:"note"},"まだ控えがありません。"));
+ for(const r of rows){const d=new Date(r.b.t);let n=0;try{const q=JSON.parse(r.b.s);n=q.items.length}catch(e){}
+  pn.append(h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0"},h("div",{style:"flex:1;min-width:0"},h("div",{style:"white-space:nowrap;overflow:hidden;text-overflow:ellipsis"},r.name),h("div",{class:"note",style:"margin:2px 0 0"},`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}・クリップ${n}個`)),
+   h("button",{class:"btn pri",onclick:async()=>{await saveNow();const id=uid(),q=JSON.parse(r.b.s);q.name=(q.name||r.name)+"（控え）";await DB.put("kv","p:"+id,JSON.stringify(q));projects.unshift({id,name:q.name,updated:Date.now()});await DB.put("kv","projects",JSON.stringify(projects));await loadProject(id);toast("控えから戻しました")}},"戻す")))}}
 async function renameProj(p){const n=prompt("プロジェクトの名前",p.name);if(!n)return;p.name=n;if(p.id===curId)P.name=n;else{const s=await DB.get("kv","p:"+p.id);if(s){const q=JSON.parse(s);q.name=n;await DB.put("kv","p:"+p.id,JSON.stringify(q))}}await DB.put("kv","projects",JSON.stringify(projects));save();renderPanel()}
 async function dupProj(p){await saveNow();const s=await DB.get("kv","p:"+p.id),id=uid(),q=s?JSON.parse(s):blank();q.name=p.name+" のコピー";await DB.put("kv","p:"+id,JSON.stringify(q));projects.unshift({id,name:q.name,updated:Date.now()});await DB.put("kv","projects",JSON.stringify(projects));renderPanel();toast("複製しました")}
 async function delProj(p){if(!confirm(`「${p.name}」を消しますか？元に戻せません。`))return;const wasCur=p.id===curId;projects=projects.filter(x=>x!==p);await DB.del("kv","p:"+p.id);if(wasCur)curId=null;
@@ -2211,8 +2238,11 @@ function cancelExport(){if(!exporting)return ovHide();exporting.cancel=true;play
 
 /* ================= 起動 ================= */
 document.addEventListener("keydown",e=>{if(e.target.tagName==="TEXTAREA"||e.target.tagName==="INPUT")return;if(e.code==="Space"){e.preventDefault();playing?pause():play()}});
-(async()=>{setPlayIcon();updUndo();await DB.open();await libLoad();
+(async()=>{setPlayIcon();updUndo();await DB.open();try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}await libLoad();
  let list=null;try{list=JSON.parse(await DB.get("kv","projects")||"null")}catch(e){}
+ try{const ks=(await DB.keys("kv")).map(String).filter(k=>k.startsWith("p:"));list=list||[];let add=false;
+  for(const k of ks){const id=k.slice(2);if(list.find(q=>q.id===id))continue;let nm="復元したプロジェクト";try{const q=JSON.parse(await DB.get("kv",k));if(q&&q.items&&!q.items.length&&!(q.fx||[]).length)continue;nm=(q&&q.name)||nm}catch(e){continue}list.push({id,name:nm,updated:Date.now()});add=true}
+  if(add)await DB.put("kv","projects",JSON.stringify(list))}catch(e){}
  if(!list||!list.length){const id=uid(),old=await DB.get("kv","project");let p=null;try{p=old?JSON.parse(old):null}catch(e){}if(!p)p=blank();p.name=p.name||"プロジェクト 1";
   await DB.put("kv","p:"+id,JSON.stringify(p));list=[{id,name:p.name,updated:Date.now()}];await DB.put("kv","projects",JSON.stringify(list));await DB.put("kv","cur",id)}
  projects=list;let cur=await DB.get("kv","cur");if(!projects.find(p=>p.id===cur))cur=projects[0].id;
