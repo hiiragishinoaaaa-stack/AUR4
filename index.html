@@ -895,16 +895,21 @@ function pruneEls(){const ids=new Set(P.items.map(i=>i.id));for(const k in EL)if
 function seekEl(e,target){if(Math.abs(e.currentTime-target)<.02)return;if(e.seeking){e._pend=target;return}e.currentTime=target}
 function vidTarget(it,t){const l=clamp(t-it.start,0,it.dur),s=srcAt(it,l);return it.rev?it.trimIn+srcAt(it,it.dur)-s-1/60:it.trimIn+s}
 /* 音素材はWebAudioで再生（要素の数の上限や読み込み待ちで鳴らないのを防ぐ） */
-const ABUF={},ABP={};let AUD=[],audGen=0;
+const ABUF={},ABP={},AFAIL={};let AUD=[],AUDE=[],audGen=0;
 function audMuted(a){return (P.amute||[]).includes(a.lane||0)}
 function getBuf(mid){if(ABUF[mid])return Promise.resolve(ABUF[mid]);if(ABP[mid])return ABP[mid];if(!AC)return Promise.resolve(null);
- ABP[mid]=(async()=>{try{const b=await DB.get("media",mid);if(!b)return null;const buf=await AC.decodeAudioData(await b.arrayBuffer());ABUF[mid]=buf;return buf}catch(e){return null}finally{delete ABP[mid]}})();return ABP[mid]}
+ ABP[mid]=(async()=>{try{const b=await DB.get("media",mid);if(!b)return null;const buf=await new Promise((res,rej)=>{b.arrayBuffer().then(ab=>{const pr=AC.decodeAudioData(ab,res,rej);if(pr&&pr.catch)pr.catch(rej)},rej)});ABUF[mid]=buf;return buf}catch(e){AFAIL[mid]=1;return null}finally{delete ABP[mid]}})();return ABP[mid]}
 function warmAud(){if(!AC)return;for(const a of P.audio)getBuf(a.mid)}
-function stopAud(){audGen++;for(const s of AUD){try{s.stop()}catch(e){}}AUD=[]}
+function stopAud(){audGen++;for(const s of AUD){try{s.stop()}catch(e){}}AUD=[];for(const q of AUDE){clearTimeout(q.tm);clearTimeout(q.st);if(q.e){try{q.e.pause()}catch(e){}}}AUDE=[]}
+/* WebAudioで読めない形式の音は、昔の方法（audio要素）で鳴らす */
+function elPlay(a,gen,T0,c0){const m=M[a.mid];if(!m||!m.url)return;const delay=Math.max(0,(c0+(a.start-T0))-AC.currentTime);
+ const q={tm:setTimeout(()=>{if(gen!==audGen||!playing)return;const lt=Math.max(0,T-a.start);if(lt>=a.dur)return;const e=new Audio(m.url);q.e=e;e.volume=clamp(a.vol??1);
+  try{const sn=AC.createMediaElementSource(e);sn.connect(AC.destination);if(DEST)sn.connect(DEST)}catch(x){}
+  const go=()=>{try{e.currentTime=(a.trimIn||0)+lt}catch(x){}e.play().catch(()=>{});q.st=setTimeout(()=>{try{e.pause()}catch(x){}},(a.dur-lt)*1000)};if(e.readyState>=1)go();else e.addEventListener("loadedmetadata",go,{once:true})},delay*1000)};AUDE.push(q)}
 function fadeAt(a,lt){let f=1;if(a.fin>0)f=Math.min(f,lt/a.fin);if(a.fout>0)f=Math.min(f,(a.dur-lt)/a.fout);return clamp(f)}
 function schedAud(){stopAud();if(!AC||!playing)return;const gen=audGen,T0=T,c0=AC.currentTime+.03;
  for(const a of P.audio){if(a.start+a.dur<=T0||audMuted(a))continue;
-  const go=buf=>{if(!buf||gen!==audGen||!playing)return;const when=Math.max(AC.currentTime+.01,c0+(a.start-T0)),tl=T0+(when-c0),lt=Math.max(0,tl-a.start),off=Math.max(0,(a.trimIn||0)+lt),rem=a.dur-lt;
+  const go=buf=>{if(gen!==audGen||!playing)return;if(!buf){if(AFAIL[a.mid])elPlay(a,gen,T0,c0);return}const when=Math.max(AC.currentTime+.01,c0+(a.start-T0)),tl=T0+(when-c0),lt=Math.max(0,tl-a.start),off=Math.max(0,(a.trimIn||0)+lt),rem=a.dur-lt;
    if(rem<=.01||off>=buf.duration)return;const src=AC.createBufferSource();src.buffer=buf;const g=AC.createGain();src.connect(g);g.connect(AC.destination);if(DEST)g.connect(DEST);
    const v=clamp(a.vol??1,0,2);g.gain.setValueAtTime(v*fadeAt(a,lt),when);if(a.fin>0&&lt<a.fin)g.gain.linearRampToValueAtTime(v,when+(a.fin-lt));
    if(a.fout>0){const fs=Math.max(0,a.dur-a.fout-lt);g.gain.setValueAtTime(v*fadeAt(a,lt+fs),when+fs);g.gain.linearRampToValueAtTime(0,when+rem)}
@@ -921,9 +926,9 @@ function syncMedia(){
   let fv=1;if(!isV){const lt=T-it.start;if(it.fin>0)fv=Math.min(fv,lt/it.fin);if(it.fout>0)fv=Math.min(fv,(it.dur-lt)/it.fout)}e.volume=clamp((it.vol??1)*clamp(fv));
   if(isV){const rt=speedAt(it,(T-it.start)/it.dur);if(Math.abs(e.playbackRate-rt)>.01)try{e.playbackRate=rt}catch(x){}}
   if(active&&playing&&isV&&it.rev){if(!e.paused)e.pause();seekEl(e,Math.max(0,target))}
-  else if(active&&playing){if(e.paused){e.currentTime=Math.max(0,target);const p=e.play();if(p)p.catch(()=>{})}else if(Math.abs(e.currentTime-target)>.25)e.currentTime=target}
+  else if(active&&playing){if(e.paused){e.currentTime=Math.max(0,target);const p=e.play();if(p)p.catch(()=>{})}else if(Math.abs(e.currentTime-target)>(isV?.35:.25)&&!e.seeking)e.currentTime=target}
   else{if(!e.paused)e.pause();if(active&&isV)seekEl(e,Math.max(0,target));else if(isV&&T<it.start)seekEl(e,Math.max(0,vidTarget(it,it.start)))}
-  if(isV&&active&&e.readyState<2){const now=performance.now();if(now-(e._born||0)>4000){relEl(it.id);needDraw=true}else if(!e.seeking&&now-(e._nudge||0)>600){e._nudge=now;try{e.currentTime=Math.max(0,target)+.001}catch(x){}}}}}
+  if(isV&&active&&!playing&&!e.seeking&&e.readyState<2){const now=performance.now();if(!e._low)e._low=now;if(now-e._low>700&&now-(e._nudge||0)>900){e._nudge=now;try{e.currentTime=Math.max(0,target)+.001}catch(x){}}}else if(isV)e._low=0}}
 function play(){ensureAudio();warmAud();if(T>=duration()-.02)T=0;playing=true;t0=performance.now();p0=T;syncMedia();schedAud();setPlayIcon()}
 let stopAt=null;
 function playRange(a,b){if(playing)pause();T=clamp(a,0,duration());play();p0=T;stopAt=b}
