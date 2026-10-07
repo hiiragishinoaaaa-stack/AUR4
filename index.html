@@ -589,8 +589,8 @@ void main(){float mode=floor(wq.x+.5);float a=amt;vec2 hs=vec2(ar*.5,.5);vec2 c=
 <script type="x-shader/x-fragment" id="sh-spin2">
 float ein3(float q){return q<.5?4.*q*q*q:1.-pow(-2.*q+2.,3.)/2.;}
 float angAt(float t){float a1=.18;float d=radians(15.)*amt;if(t<a1){float u=t/a1;return -d*(1.-pow(1.-u,3.));}float q=(t-a1)/(1.-a1);return -d+(6.28318+d)*ein3(q);}
-vec4 sp(vec2 c,float t){float a=angAt(t);float a1=.18;float q=clamp((t-a1)/(1.-a1),0.,1.);float z=1.+.32*sin(3.14159*q)+.05*clamp(t/a1,0.,1.)*(1.-q);
- vec2 r=rot(c,-a)/z;float m=smoothstep(.44,.56,q);return mix(mA(toU(r)),mB(toU(r)),m);}
+vec4 sp(vec2 c,float t){float a=angAt(t);float a1=.18;float q=clamp((t-a1)/(1.-a1),0.,1.);float z=1.;float dd=wq.x>.5?-1.:1.;
+ vec2 r=rot(c,-a*dd)/z;float m=smoothstep(.44,.56,q);return mix(mA(toU(r)),mB(toU(r)),m);}
 void main(){vec2 c=toC(uv);float a1=.18;float q=clamp((p-a1)/(1.-a1),0.,1.);float vel=p<a1?.25:sin(3.14159*q);float span=.035*rgb*vel;
  vec4 col=vec4(0.);for(int i=0;i<12;i++){float f=float(i)/11.;col+=sp(c,clamp(p-f*span,0.,1.));}col/=12.;gl_FragColor=vec4(col.rgb,1.);}
 </script>
@@ -1637,7 +1637,7 @@ const GEX={acc:0,lin:1,dec:2,bounce:3};
 function glOpts(it,gt,pp,t){const tr=it.tin,o={p:pp,amt:tr.amt??1,seed:t*32,v:gt.v,rgb:tr.blur??0,w:[0,0,0,0]};
  if(gt.sh==="gather"){o.v=[gt.v[0],tr.size??.45];o.rgb=tr.blur??(ST.gblur??.6);o.w=[GEX[tr.ge||"acc"]??0,tr.rev?1:0,tr.gf??.42,tr.hold??.08];const e0=Math.min(.95,(tr.gf??.42)+(tr.hold??.08)),q2=clamp((pp-e0)/(1-e0));o.w2=[(tr.wa||0)*(1-q2*q2*(3-2*q2)),0,0,0]}
  else if(gt.sh==="jikuu")o.w=[tr.rad||0,tr.shp==="circle"?2:4,0,0];
- else if(gt.sh==="spin2")o.rgb=tr.blur??.7;
+ else if(gt.sh==="spin2"){o.rgb=tr.blur??.7;o.w=[tr.sdir==="ccw"?1:0,0,0,0]}
  else if(gt.sh==="shape"){o.v=[tr.cx??.5,tr.cy??.5];o.w=[gt.sid,(tr.bw??.5)*(tr.bc==="black"?-1:1),tr.zm??.4,tr.spin??(gt.sid===3?.6:0)];o.rgb=tr.soft??.1}
  else if(gt.sh==="wipe"&&gt.mode===3){o.v=[tr.ang??0,tr.cdir??0];o.w=[3,(tr.bw??.6)*(tr.bc==="black"?-1:1),(tr.cx??.5)+1,(tr.cy??.5)+1];o.rgb=tr.blur??.5}
  else if(gt.sh==="wipe"){o.v=[tr.ang??gt.ang??0,gt.mode===9?(tr.sv??0):(tr.cnt??gt.cnt??8)];o.w=[gt.mode,(tr.bw??gt.bw??.6)*(tr.bc==="black"?-1:1),0,0];o.rgb=tr.blur??.5}
@@ -1680,7 +1680,7 @@ function pairOpts(it,pk,play){const tr=it.tin,ty=tr.type,out=[],set=(k,v)=>{snap
  else if(ty.startsWith("wipe_")){const gt=GLT[ty]||{};out.push(gt.ang!=null?slider("角度",-180,180,1,()=>tr.ang??gt.ang,v=>{tr.ang=v},deg):null,gt.cnt!=null?slider("本数",2,20,1,()=>tr.cnt??gt.cnt,v=>{tr.cnt=v},v=>v+"本"):null,
    [2,4,6].includes(gt.mode)?null:slider(ty==="wipe_bar"?"バーの濃さ":"線の太さ",0,1.5,.01,()=>tr.bw??.6,v=>{tr.bw=v},pct),
    [2,4,6].includes(gt.mode)?null:chips([["white","白"],["black","黒"]],tr.bc||"white",v=>set("bc",v)),slider("ブレ",0,1,.01,()=>tr.blur??.5,v=>{tr.blur=v},pct))}
- else if(ty==="spinswap")out.push(slider("ブレ",0,1.5,.01,()=>tr.blur??.7,v=>{tr.blur=v},pct),h("p",{class:"note"},"最初に反時計回りに少し戻ってから、時計回りに1回転します。「強さ」で最初に戻る角度が変わります（1.00xで15°）。"));
+ else if(ty==="spinswap")out.push(sec("回る向き"),chips([["cw","時計回り"],["ccw","反時計回り"]],tr.sdir||"cw",v=>set("sdir",v)),slider("ブレ",0,1.5,.01,()=>tr.blur??.7,v=>{tr.blur=v},pct),h("p",{class:"note"},"最初に少し逆に戻ってから1回転します。拡大・縮小はしません。「強さ」で最初に戻る角度が変わります（1.00xで15°）。"));
  else if((ty.startsWith("ref_")||ty.startsWith("ref2_"))&&GLT[ty].sh==="ref"){const md=GLT[ty].md;
   out.push(md===0?slider("まぶたの丸み",0,.9,.01,()=>tr.lidk??.35,v=>{tr.lidk=v},pct):null,md===1?slider("止まる大きさ",.2,1,.01,()=>tr.stop??.5,v=>{tr.stop=v},pct):null,
    md===2?chips([["light","明るい所から"],["dark","暗い所から"]],tr.dark?"dark":"light",v=>set("dark",v==="dark"||undefined)):null,
@@ -1824,20 +1824,16 @@ function addMagic(){snap();mgFonts();const it=newItem(null,"shape",T,3.2,P.items
 const MGS=800,MGR=MGS*.44,MG={L:null,ok:false,t:0};
 function mgFonts(){if(MG.fl)return;MG.fl=1;for(const f of ["Great Vibes","Cinzel","Tinos"])loadFont(f);
  if(document.fonts){let n=0;const chk=()=>{const ok=document.fonts.check('40px "Great Vibes"')&&document.fonts.check('40px "Cinzel"');if(ok){MG.L=null;MG.ok=true;needDraw=true}else if(++n<12)setTimeout(chk,700)};setTimeout(chk,500)}}
-function mgBuild(){const mk=()=>{const c=document.createElement("canvas");c.width=MGS;c.height=MGS;return c};const L={o:mk(),t:mk(),b:mk(),c:mk()},S=MGS,RR=MGR,TAU=Math.PI*2,SC="'Great Vibes', cursive",CZ="'Cinzel', serif";
+function mgBuild(){const mk=()=>{const c=document.createElement("canvas");c.width=MGS;c.height=MGS;return c};const L={a:mk(),b:mk(),c:mk()},S=MGS,RR=MGR*.97,TAU=Math.PI*2,SC="'Great Vibes', cursive",CZ="'Cinzel', serif";
  const arcText=(x,txt,r,a0,a1,fs,font)=>{x.save();x.font=fs+"px "+font;x.textAlign="center";x.textBaseline="middle";const ch=[...txt],ws=ch.map(c=>x.measureText(c).width),tot=ws.reduce((a,b)=>a+b,0),gap=Math.max(0,((a1-a0)*r-tot)/Math.max(1,ch.length-1));let q=0;ch.forEach((c,i)=>{const a=a0+(q+ws[i]/2)/r;x.save();x.rotate(a);x.translate(0,-r);x.fillText(c,0,0);x.restore();q+=ws[i]+gap});x.restore()};
- const G=(x,lw)=>{x.strokeStyle="#fff";x.fillStyle="#fff";x.lineWidth=lw;x.shadowColor="rgba(255,255,255,.8)";x.shadowBlur=RR*.018;x.lineCap="round";x.lineJoin="round"};
- const ring=(x,r)=>{x.beginPath();x.arc(0,0,r,0,TAU);x.stroke()};
- const poly=(x,n,r,st,rot)=>{x.beginPath();for(let i=0;i<=n;i++){const a=rot+(i*st%n)*TAU/n,px=Math.sin(a)*r,py=-Math.cos(a)*r;i?x.lineTo(px,py):x.moveTo(px,py)}x.stroke()};
- let x=L.o.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.012);ring(x,RR);x.lineWidth=RR*.005;ring(x,RR*.975);
- for(let i=0;i<96;i++){x.save();x.rotate(i*TAU/96);x.beginPath();x.moveTo(0,-RR*.975);x.lineTo(0,-RR*(i%4?.962:.95));x.stroke();x.restore()}
- x.lineWidth=RR*.009;ring(x,RR*.84);const W=["Aur4 arcanum lucis","stellae vocare Aur4","Aur4 aeternum magia","umbra silentii Aur4"];for(let i=0;i<4;i++)arcText(x,W[i],RR*.892,i*TAU/4+.18,(i+1)*TAU/4-.18,RR*.075,SC);
- const GR=["π","δ","ω","ν"];for(let i=0;i<4;i++){x.save();x.rotate(i*TAU/4);x.translate(0,-RR*.892);x.save();x.shadowBlur=0;x.globalCompositeOperation="destination-out";x.beginPath();x.arc(0,0,RR*.085,0,TAU);x.fill();x.restore();
-  x.lineWidth=RR*.009;ring(x,RR*.085);x.lineWidth=RR*.004;ring(x,RR*.07);x.font=RR*.085+"px "+CZ;x.textAlign="center";x.textBaseline="middle";x.fillText(GR[i],0,RR*.004);x.restore()}x.restore();
- x=L.t.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.008);poly(x,8,RR*.835,3,0);x.restore();
- x=L.b.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.008);ring(x,RR*.62);ring(x,RR*.5);for(let i=0;i<4;i++)arcText(x,"AUR4",RR*.56,i*TAU/4+.35,(i+1)*TAU/4-.35,RR*.05,CZ);
- for(let i=0;i<4;i++){x.save();x.rotate(i*TAU/4);x.translate(0,-RR*.56);x.beginPath();x.arc(0,0,RR*.01,0,TAU);x.fill();x.restore()}x.restore();
- x=L.c.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.008);const hh=RR*.35;x.strokeRect(-hh,-hh,2*hh,2*hh);x.rotate(Math.PI/4);x.strokeRect(-hh,-hh,2*hh,2*hh);x.rotate(-Math.PI/4);ring(x,RR*.2);x.restore();return L}
+ const G=(x,lw)=>{x.strokeStyle="#fff";x.fillStyle="#fff";x.lineWidth=lw;x.shadowColor="rgba(255,255,255,.95)";x.shadowBlur=RR*.035;x.lineCap="round";x.lineJoin="round"};
+ const ring=(x,r)=>{x.beginPath();x.arc(0,0,r,0,TAU);x.stroke()};const GR=["π","δ","ω","ν"];
+ let x=L.a.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.016);ring(x,RR);x.lineWidth=RR*.011;ring(x,RR*.84);
+ const W=["arcanum lucis","stellae vocare","aeternum magia","umbra silentii"];for(let i=0;i<4;i++)arcText(x,W[i],RR*.92,i*TAU/4+.2,(i+1)*TAU/4-.2,RR*.105,SC);
+ for(let i=0;i<4;i++){x.save();x.rotate(i*TAU/4);x.translate(0,-RR*.92);x.save();x.shadowBlur=0;x.globalCompositeOperation="destination-out";x.beginPath();x.arc(0,0,RR*.115,0,TAU);x.fill();x.restore();x.lineWidth=RR*.013;ring(x,RR*.115);x.lineWidth=RR*.008;ring(x,RR*.095);x.font=RR*.12+"px "+CZ;x.textAlign="center";x.textBaseline="middle";x.fillText(GR[i],0,RR*.005);x.restore()}x.restore();
+ x=L.b.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.011);ring(x,RR*.66);ring(x,RR*.5);const V=["lumen noctis","vox caeli","ignis vitae","porta mundi"];for(let i=0;i<4;i++)arcText(x,V[i],RR*.58,i*TAU/4+.22,(i+1)*TAU/4-.22,RR*.062,SC);
+ for(let i=0;i<4;i++){x.save();x.rotate(i*TAU/4);x.translate(0,-RR*.58);x.font=RR*.07+"px "+CZ;x.textAlign="center";x.textBaseline="middle";x.fillText(GR[i],0,0);x.restore()}x.restore();
+ x=L.c.getContext("2d");x.save();x.translate(S/2,S/2);G(x,RR*.012);const hh=RR*.6;x.strokeRect(-hh,-hh,2*hh,2*hh);x.rotate(Math.PI/4);const d=RR*.84/Math.SQRT2;x.strokeRect(-d,-d,2*d,2*d);x.restore();return L}
 function mgP(dur,hold){const hf=(hold||0)/Math.max(.5,dur),a1=.34,b0=a1+hf,b1=b0+.1,b2=b1+.015,b3=b2+.12;return {a1,b0,b1,b2,b3}}
 function mgSc(u,p,mn){if(u<p.a1){const x=u/p.a1;return .6*(1-Math.cos(x*Math.PI/2))}if(u<p.b0)return .6;if(u<p.b1){const x=(u-p.b0)/(p.b1-p.b0);return .6-(.6-mn)*(1-Math.pow(1-x,1.6))}if(u<p.b2)return mn;const x=clamp((u-p.b2)/(p.b3-p.b2));return mn+(1-mn)*(1-Math.pow(1-x,4))}
 function drawMagic(D,R0,lt,dur,it){mgFonts();if(!MG.L){MG.L=mgBuild();MG.t=performance.now()}
@@ -1846,7 +1842,7 @@ function drawMagic(D,R0,lt,dur,it){mgFonts();if(!MG.L){MG.L=mgBuild();MG.t=perfo
  const n0=p.b2+.035,na=u<n0?0:u<n0+.11?(u-n0)/.11:u<.85?1:1-clamp((u-.85)/.13);let al=u<p.a1?clamp(u/p.a1*2.5):1-clamp((u-n0)/.27);al*=1-.55*na;
  const k=R0/MGR*sc,base=D.globalAlpha;D.save();D.globalCompositeOperation="lighter";
  const lay=(c,a)=>{if(k<=.001)return;D.save();D.globalAlpha=base*al;D.rotate(a);D.scale(k,k);D.drawImage(c,-MGS/2,-MGS/2);D.restore()};
- lay(L.o,lt*.15+spin);lay(L.t,-lt*.25-spin*.8);lay(L.b,-lt*.4-spin*1.2);lay(L.c,lt*.55+spin*1.5);
+ lay(L.a,lt*.35+spin);lay(L.b,-lt*.7-spin*1.2);lay(L.c,lt*.5+spin*1.5);
  const f0=p.b1-.03,fl=u>f0&&u<f0+.09?Math.sin(clamp((u-f0)/.09)*Math.PI):0;if(fl>0){D.globalAlpha=base*fl*.7;const r=R0*.14,g=D.createRadialGradient(0,0,0,0,0,r);g.addColorStop(0,"rgba(255,255,255,1)");g.addColorStop(1,"rgba(255,255,255,0)");D.fillStyle=g;D.fillRect(-r,-r,2*r,2*r)}
  if(u>p.b2&&u<p.b2+.185){const q=clamp((u-p.b2)/.185);D.globalAlpha=base*(1-q)*.45;D.strokeStyle="#fff";D.lineWidth=Math.max(1,R0*.007*(1-q));D.beginPath();D.arc(0,0,R0*.1+R0*(1-Math.pow(1-q,3)),0,TAU);D.stroke()}
  D.restore();
@@ -1900,7 +1896,7 @@ function pShape(pn,it){if(!it||it.type!=="shape")return;
    sec("質感"),chips(ARMAT,it.amat||"metal",v=>set("amat",v)),sec("枠"),chips(AROL,it.aol||"none",v=>set("aol",v)),
    h("div",{class:"btns"},h("label",{class:"chip",style:"display:flex;align-items:center;gap:8px"},"色",ci)),
    slider("大きさ",.5,1.8,.05,()=>it.sw_??1,v=>{it.sw_=v;it.sh_=v},pct),slider("太さ",.5,1.8,.05,()=>it.ath??1,v=>{it.ath=v},pct),slider("しっぽの長さ",.3,2,.05,()=>it.atl??1,v=>{it.atl=v},pct),
-   slider("残像",0,1,.05,()=>it.atr??.5,v=>{it.atr=v},pct),slider("速さ",.3,2,.05,()=>it.aspd??1,v=>{it.aspd=v},v=>v.toFixed(2)+"x"),
+   slider("残像",0,1,.05,()=>it.atr??.5,v=>{it.atr=v},pct),slider("速さ",.3,5,.05,()=>it.aspd??1,v=>{it.aspd=v},v=>v.toFixed(2)+"x"),slider("長さ",.2,8,.05,()=>arLen(it),v=>{const b=arLen({...it,aspd:1});it.aspd=clamp(b/v,.05,20);it.dur=v;return true},v=>v.toFixed(2)+"秒"),
    h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>{snap();it.dur=arLen(it);changed(true);renderPanel()}},"クリップの長さを動きに合わせる")),
    h("p",{class:"note"},"写真の切り替わりに合わせて、上のレーンに重ねて使うのがおすすめ。速さを変えたら上のボタンで長さを合わせてね。"));return}
  if(it.shape==="magic"){const inp=h("input",{class:"txtin",value:it.mname??"AUR4",placeholder:"名前"});inp.oninput=()=>{beginEdit();it.mname=inp.value;changed()};
