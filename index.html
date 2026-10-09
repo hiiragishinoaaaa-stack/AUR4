@@ -937,15 +937,25 @@ $("#emptyAdd").onclick=()=>pickMedia("append");
 
 /* ================= 再生 ================= */
 let AC=null,DEST=null;
-function ensureAudio(){if(AC){if(AC.state==="suspended")AC.resume();return}
- try{AC=new (window.AudioContext||window.webkitAudioContext)();DEST=AC.createMediaStreamDestination();for(const k in EL)connectEl(EL[k])}catch(e){AC=null}}
-function connectEl(e){if(!AC||e._src)return;try{e._src=AC.createMediaElementSource(e);e._g=AC.createGain();e._src.connect(e._g);e._g.connect(AC.destination);e._g.connect(DEST)}catch(x){}}
-function setVol(e,v){v=clamp(v,0,2);if(e._g){e.volume=1;e._g.gain.value=v}else e.volume=clamp(v)}
+let acBad=0,HOLD=0,PREP=false;window.playing0=()=>playing&&!PREP;
+function ensureAudio(){try{if(navigator.audioSession&&navigator.audioSession.type!=="playback")navigator.audioSession.type="playback"}catch(e){}
+ if(AC&&(AC.state==="closed"||AC.state==="interrupted"))resetAudio();
+ if(AC){if(AC.state!=="running")AC.resume().catch(()=>{});return}
+ try{AC=new (window.AudioContext||window.webkitAudioContext)();acBad=0;AC.onstatechange=()=>{if(AC&&AC.state!=="running"&&playing)AC.resume().catch(()=>{})};for(const k in EL)connectEl(EL[k])}catch(e){AC=null}}
+function needDest(){ensureAudio();if(AC&&!DEST){try{DEST=AC.createMediaStreamDestination();for(const k in EL)if(EL[k]._g)EL[k]._g.connect(DEST)}catch(e){DEST=null}}}
+/* 長く閉じてた後は、保存してある素材のURLが使えなくなることがあるので作り直す */
+async function refreshUrls(ids){for(const id of ids||Object.keys(M)){const m=M[id];if(!m||m.type==="image")continue;try{const b=await DB.get("media",id);if(!b)continue;const old=m.url;m.url=URL.createObjectURL(b);setTimeout(()=>{try{URL.revokeObjectURL(old)}catch(e){}},5000)}catch(e){}}}
+function mediaNotReady(){for(const a of P.audio){if(audMuted(a)||!(T>=a.start&&T<a.start+a.dur))continue;const e=EL[a.id];if(!e||e.readyState<3||e.seeking||e._seekWant!=null)return true}
+ for(const it of P.items){if(it.type!=="video"||itemHidden(it)||!(T>=it.start&&T<it.start+it.dur))continue;const e=EL[it.id];if(!e||e.readyState<2||e._seekWant!=null)return true}return false}
+function resetAudio(){if(AC){try{AC.close()}catch(e){}}AC=null;DEST=null;for(const k of Object.keys(EL))relEl(k)}
+function connectEl(e){if(!AC||e._src)return;try{e._src=AC.createMediaElementSource(e);e._g=AC.createGain();e._src.connect(e._g);e._g.connect(AC.destination);if(DEST)e._g.connect(DEST)}catch(x){}}
+function setVol(e,v){v=clamp(v,0,3);if(e._g){if(e.volume!==1)e.volume=1;if(Math.abs(e._g.gain.value-v)>.001)e._g.gain.value=v}else e.volume=clamp(v)}
 function elFor(it,kind){let e=EL[it.id];const m=M[it.mid];if(!m)return null;
  if(!e){e=document.createElement(kind);e.playsInline=true;e.preload="auto";e.src=m.url;
   e.addEventListener("seeked",()=>{needDraw=true;if(e._pend!=null){const p=e._pend;e._pend=null;e.currentTime=p}});
-  e.addEventListener("loadeddata",()=>needDraw=true);e.addEventListener("error",()=>{relEl(it.id);needDraw=true});e._born=performance.now();connectEl(e);EL[it.id]=e}
+  e.addEventListener("loadeddata",()=>needDraw=true);e.addEventListener("loadedmetadata",()=>{if(e._seekWant!=null){try{e.currentTime=e._seekWant}catch(x){}e._seekWant=null}needDraw=true});e.addEventListener("error",()=>{relEl(it.id);needDraw=true;const n=(ERRN[it.mid]||0)+1;ERRN[it.mid]=n;if(n<=3)refreshUrls([it.mid]).then(()=>{syncMedia();needDraw=true})});e._born=performance.now();connectEl(e);EL[it.id]=e}
  return e}
+const ERRN={};
 function relEl(id){const e=EL[id];if(!e)return;try{e.pause();e.removeAttribute("src");e.load()}catch(x){}delete EL[id]}
 function pruneEls(){const ids=new Set([...P.items.map(i=>i.id),...P.audio.map(a=>a.id)]);for(const k in EL)if(!ids.has(k)){try{EL[k].pause();EL[k].removeAttribute("src");EL[k].load()}catch(e){}delete EL[k]}}
 function seekEl(e,target){if(Math.abs(e.currentTime-target)<.02)return;if(e.seeking){e._pend=target;return}e.currentTime=target}
@@ -971,7 +981,7 @@ function schedAud(){stopAud();if(!USE_WA||!AC||!playing)return;const gen=audGen,
    if(a.fout>0){const fs=Math.max(0,a.dur-a.fout-lt);g.gain.setValueAtTime(v*fadeAt(a,lt+fs),when+fs);g.gain.linearRampToValueAtTime(0,when+rem)}
    src.start(when,off,Math.max(.01,Math.min(rem,buf.duration-off)));AUD.push(src)};
   if(ABUF[a.mid])go(ABUF[a.mid]);else getBuf(a.mid).then(go)}}
-function syncMedia(){
+function syncMedia(){const playing=window.playing0();
  /* スマホは動画の同時読み込み数に上限があるので、今の時間の近くの動画だけ用意して、遠いのは手放す */
  if(!exporting||!exporting.frames)for(const it of P.items)if(it.type==="video"&&EL[it.id]){const near=T>=it.start-3&&T<it.start+it.dur+1.5;let pairNear=false;const nx=P.items.find(o=>o.track===it.track&&PAIRSET.has(o.tin.type)&&Math.abs(o.start-(it.start+it.dur))<.05);if(nx)pairNear=T>=nx.start-3&&T<nx.start+nx.tin.dur+1;if(!near&&!pairNear)relEl(it.id)}
  for(const a of P.audio)if(EL[a.id]&&!(T>=a.start-2.5&&T<a.start+a.dur+.5&&!audMuted(a)))relEl(a.id);
@@ -983,13 +993,13 @@ function syncMedia(){
   let fv=1;if(!isV){const lt=T-it.start;if(it.fin>0)fv=Math.min(fv,lt/it.fin);if(it.fout>0)fv=Math.min(fv,(it.dur-lt)/it.fout)}setVol(e,(it.vol??1)*clamp(fv));
   if(isV){const rt=speedAt(it,(T-it.start)/it.dur);if(Math.abs(e.playbackRate-rt)>.01)try{e.playbackRate=rt}catch(x){}}
   if(active&&playing&&isV&&it.rev){if(!e.paused)e.pause();seekEl(e,Math.max(0,target))}
-  else if(active&&playing){if(e.paused){e.currentTime=Math.max(0,target);const p=e.play();if(p)p.catch(()=>{})}else if(Math.abs(e.currentTime-target)>(isV?.35:.25)&&!e.seeking)e.currentTime=target}
-  else{if(!e.paused)e.pause();if(active&&isV)seekEl(e,Math.max(0,target));else if(isV&&T<it.start)seekEl(e,Math.max(0,vidTarget(it,it.start)));else if(!isV&&T<it.start&&Math.abs(e.currentTime-(it.trimIn||0))>.05&&!e.seeking)e.currentTime=it.trimIn||0}
+  else if(active&&playing){if(e.paused){const tg=Math.max(0,target);if(e.readyState>=1){e.currentTime=tg;e._seekWant=null}else e._seekWant=tg;const p=e.play();if(p)p.catch(()=>{})}else if(e._seekWant==null&&Math.abs(e.currentTime-target)>(isV?.35:.12)&&!e.seeking)e.currentTime=target}
+  else{if(!e.paused)e.pause();if(active&&isV)seekEl(e,Math.max(0,target));else if(isV&&T<it.start)seekEl(e,Math.max(0,vidTarget(it,it.start)));else if(!isV&&T<it.start&&Math.abs(e.currentTime-(it.trimIn||0))>.05&&!e.seeking)e.currentTime=it.trimIn||0;else if(!isV&&active&&PREP){const tg=Math.max(0,target);if(e.readyState>=1){if(Math.abs(e.currentTime-tg)>.04&&!e.seeking)e.currentTime=tg}else e._seekWant=tg}}
   if(isV&&active&&!playing&&!e.seeking&&e.readyState<2){const now=performance.now();if(!e._low)e._low=now;if(now-e._low>700&&now-(e._nudge||0)>900){e._nudge=now;try{e.currentTime=Math.max(0,target)+.001}catch(x){}}}else if(isV)e._low=0}}
-function play(){ensureAudio();warmAud();if(T>=duration()-.02)T=0;playing=true;t0=performance.now();p0=T;syncMedia();schedAud();setPlayIcon()}
+function play(){ensureAudio();warmAud();if(T>=duration()-.02)T=0;playing=true;t0=performance.now();p0=T;HOLD=t0+2500;PREP=true;syncMedia();if(!mediaNotReady()){PREP=false;HOLD=0;syncMedia()}schedAud();setPlayIcon()}
 let stopAt=null;
 function playRange(a,b){if(playing)pause();T=clamp(a,0,duration());play();p0=T;stopAt=b}
-function pause(){playing=false;stopAt=null;stopAud();syncMedia();setPlayIcon();needDraw=true;updKfBtn()}
+function pause(){playing=false;PREP=false;HOLD=0;stopAt=null;stopAud();syncMedia();setPlayIcon();needDraw=true;updKfBtn()}
 function setPlayIcon(){$("#play").innerHTML=playing?ICON.pause:ICON.play}
 $("#play").onclick=()=>playing?pause():play();
 $("#loopBtn").onclick=e=>{loopOn=!loopOn;e.currentTarget.classList.toggle("on",loopOn)};
@@ -1334,10 +1344,15 @@ window.addEventListener("pointermove",e=>{if(!od)return;if(!od.started){if(Math.
  const created=setProp(it,patch);markFast();needDraw=true;if(created){buildTL();updKfBtn()}updMoveVals()});
 window.addEventListener("pointerup",()=>{if(!od)return;const was=od.started;od=null;ovl._k="";if(was){save();buildTL();updKfBtn();if(tool)renderPanel()}needDraw=true});
 window.addEventListener("resize",()=>{ovl._k="";needDraw=true});
+const APPV="v30";
+async function forceUpdate(){ovShow("最新版を読み込んでいます…");try{await saveNow()}catch(e){}try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.update().catch(()=>{})))}catch(e){}location.replace(location.pathname+"?v="+Date.now())}
+setTimeout(()=>{try{const lv=localStorage.getItem("aura_v");if(lv!==APPV){localStorage.setItem("aura_v",APPV);if(lv)toast("AURA "+APPV+" に更新されました")}}catch(e){}},1500);
 let fastUntil=0,fastPend=false;const fastC=document.createElement("canvas"),fastX=fastC.getContext("2d");let PICK=null;document.addEventListener("pointerdown",e=>{if(!PICK)return;const r=cv.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;e.preventDefault();e.stopImmediatePropagation();const f=PICK;PICK=null;f(clamp((e.clientX-r.left)/r.width),clamp((e.clientY-r.top)/r.height))},true);
 function markFast(){fastUntil=performance.now()+220;fastPend=true}
 function frame(now){if(fastPend&&now>fastUntil&&!playing){fastPend=false;needDraw=true}
- if(playing){const d=duration();T=p0+(now-t0)/1000;
+ if(playing&&PREP){if(exporting||now>HOLD||!mediaNotReady()){PREP=false;HOLD=0;t0=now;p0=T;syncMedia()}else{t0=now;p0=T;syncMedia()}}
+ if(playing&&!exporting&&AC){if(AC.state!=="running"){if(!acBad){acBad=now;AC.resume().catch(()=>{})}else if(now-acBad>1200){resetAudio();syncMedia()}}else acBad=0}
+ if(playing&&!PREP){const d=duration();T=p0+(now-t0)/1000;
   if(stopAt!=null&&T>=stopAt){T=stopAt;pause()}else if(T>=d){if(exporting){finishExport();T=d}else if(loopOn){T=0;p0=0;t0=now;syncMedia();schedAud()}else{T=d;pause()}}else syncMedia();needDraw=true}
  if(needDraw){needDraw=false;
   if(exporting){if(!exporting.frames)renderFrame(T,exporting.c,exporting.x);const pr=$("#ov .bar i");if(pr)pr.style.width=(T/duration()*100).toFixed(1)+"%"}
@@ -1370,7 +1385,7 @@ function buildTL(){
   h+=`<div class="row addrow"><div class="lab"><button class="eye addtrA">＋</button></div>${lane('<span class="addhint">＋で音のレーン追加・♪を押すとそのレーンだけ消音</span>')}</div>`}
  tlin.style.width=(LAB+PAD+laneW)+"px";tlin.innerHTML=h;setScroll()}
 function objOf(k,id){return k==="item"?P.items.find(i=>i.id===id):k==="fx"?P.fx.find(i=>i.id===id):P.audio.find(i=>i.id===id)}
-function select(k,id){needDraw=true;grpPick=null;document.body.classList.remove("picking");ovl._k="";const keep=k==="item"&&sel&&sel.k==="item"&&["move","color","trans"].includes(tool);sel=k?{k,id}:null;if(!keep)tool=null;if(sel&&sel.k!=="item")tool=sel.k==="fx"&&objOf(k,id).type==="camera"?"move":"set";if(keep&&objOf(k,id).type==="text"&&tool!=="move")tool=null;setBodyPanel();buildTL();renderNav();renderPanel();updKfBtn()}
+function select(k,id){needDraw=true;grpPick=null;document.body.classList.remove("picking");ovl._k="";const keep=k==="item"&&sel&&sel.k==="item"&&["move","color","trans"].includes(tool);sel=k?{k,id}:null;if(!keep)tool=null;if(sel&&sel.k!=="item")tool=sel.k==="fx"&&objOf(k,id).type==="camera"?"move":"set";if(keep&&objOf(k,id).type==="text"&&tool!=="move")tool=null;if(sel&&k==="item"){const o2=objOf(k,id);if(o2&&o2.type==="shape"&&o2.shape==="arrow"&&tool!=="move")tool="shape"}setBodyPanel();buildTL();renderNav();renderPanel();updKfBtn()}
 let drag=null;
 tl.addEventListener("pointerdown",e=>{
  const atA=e.target.closest(".addtrA");if(atA){snap();P.alanes=audLanes()+1;refresh(false);toast("音のレーンを追加しました（音のクリップを上下に動かして入れてね）");return}
@@ -1450,7 +1465,7 @@ function renderNav(){const n=$("#nav");n.innerHTML="";const o=selObj();
  if(sel.k==="item"){const it=o,v=it.type==="video",tx=it.type==="text";
   n.append(navBtn("move","移動・変形",()=>openTool("move")),navBtn("onion",ONION.on?"重ね中":"半透明で重ねる",toggleOnion,ONION.on?"on":""));
   if(tx)n.append(navBtn("text","文字",()=>openTool("text")));
-  if(it.type==="shape")n.append(navBtn("shape","図形",()=>openTool("shape")));
+  if(it.type==="shape")n.append(navBtn("shape",it.shape==="arrow"?"矢印の見た目":it.shape==="magic"?"魔法陣":"図形",()=>openTool("shape"),it.shape==="arrow"&&tool!=="shape"?"on":""));
   n.append(navBtn("mask","マスク",()=>openTool("mask")),navBtn("comp","合成",()=>openTool("comp")));
   if(v)n.append(navBtn("speed","速度",()=>openTool("speed")));
   if(!tx)n.append(navBtn("trans","切り替え",()=>openTool("trans")));
@@ -1470,7 +1485,7 @@ let moveRows=[];
 function updMoveVals(){for(const r of moveRows)r._sync()}
 function renderPanel(){if(tool!=="grp"&&grpPick){grpPick=null;document.body.classList.remove("picking")}const pn=$("#panel");if(!pn._fx){pn._fx=1;const ap=pn.append.bind(pn);pn.append=(...k)=>ap(...k.filter(x=>x!=null&&x!==false))}const top=pn.scrollTop;pn.innerHTML="";moveRows=[];if(!tool)return;
  const o=selObj();const titles={move:"移動・変形",speed:"速度（ベロシティ）",trans:"切り替え",color:"色",vol:"音量",text:"文字",fx:"エフェクトを追加",set:"調整",ratio:"画面の比率",mask:"マスク",comp:"合成・光・ブレ",style:"スタイルのコピー",beat:"ビート・マーク",bg:"背景",proj:"プロジェクト",shape:"図形",lib:"素材ライブラリ",conf:"設定",grp:"グループ",cut:"切り抜き・背景うめ"};
- pn.append(h("div",{class:"pt"},h("b",null,titles[tool]||""),h("button",{onclick:()=>openTool(tool)},"×")));
+ pn.append(h("div",{class:"pt"},h("b",null,tool==="shape"&&o&&o.shape==="arrow"?"矢印（色・質感・枠・速さ）":titles[tool]||""),h("button",{onclick:()=>openTool(tool)},"×")));
  const f={move:pMove,speed:pSpeed,trans:pTrans,color:pColor,vol:pVol,text:pText,fx:pFxAdd,set:pSet,ratio:pRatio,mask:pMask,comp:pComp,style:pStyle,beat:pBeat,bg:pBg,proj:pProj,shape:pShape,lib:pLib,conf:pConf,grp:pGroup,cut:pCut}[tool];if(f)f(pn,o);pn.scrollTop=top}
 function gotoT(t){if(playing)pause();T=clamp(t,0,duration());syncMedia();needDraw=true;setScroll();updKfBtn();buildTL();renderPanel()}
 function pMove(pn,it){if(!it)return;
@@ -1761,7 +1776,7 @@ function pColor(pn,it){if(!it)return;const c=it.color,g=q=>val(it,clamp(localT(i
   slider("くっきり（シャープ）",0,1.5,.01,()=>it.sharp||0,v=>{it.sharp=v},pct),sec("プリセット"),chips(CPRE.map(([n])=>[n,n]),null,n=>{snap();const pr=CPRE.find(x=>x[0]===n)[1];Object.assign(c,{c:pr.c,s:pr.s,h:pr.h,sep:pr.sep,inv:pr.inv});setProp(it,{cb:pr.b,cbl:pr.bl});changed(true);renderPanel()}),
   sec("細かく（明るさ・ぼかしは◇で動かせます）"),slider("明るさ",0,2,.01,()=>g("cb"),v=>S("cb",v),pct),slider("コントラスト",0,3,.01,()=>c.c,v=>{c.c=v},pct),slider("鮮やかさ",0,3,.01,()=>c.s,v=>{c.s=v},pct),
   slider("色相",-180,180,1,()=>c.h,v=>{c.h=v},v=>v+"°"),slider("セピア",0,1,.01,()=>c.sep,v=>{c.sep=v},pct),slider("ぼかし",0,20,.1,()=>g("cbl"),v=>S("cbl",v),v=>v.toFixed(1)),slider("反転",0,1,.01,()=>c.inv,v=>{c.inv=v},pct))}
-function pVol(pn,it){if(!it)return;const md=(M[it.mid]||{}).dur||1;pn.append(slider("元の音量",0,2,.01,()=>it.vol??1,v=>{it.vol=v},pct),h("p",{class:"note",style:"margin:0"},"100%より上げると大きくなります（上げすぎると音が割れることがあります）"),slider("使い始め",0,Math.max(0,md-.1),.01,()=>it.trimIn,v=>{it.trimIn=v;fitVideo(it);return true},sec1))}
+function pVol(pn,it){if(!it)return;const md=(M[it.mid]||{}).dur||1;pn.append(slider("元の音量",0,3,.01,()=>it.vol??1,v=>{it.vol=v},pct),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>autoLoud(it)},"音の大きさを自動でそろえる")),h("p",{class:"note",style:"margin:0"},"100%より上げると大きくなります（上げすぎると音が割れることがあります）"),slider("使い始め",0,Math.max(0,md-.1),.01,()=>it.trimIn,v=>{it.trimIn=v;fitVideo(it);return true},sec1))}
 function pText(pn,it){if(!it||it.type!=="text")return;const ta=h("textarea",{class:"txtin",rows:"2"});ta.value=it.text;ta.oninput=()=>{beginEdit();it.text=ta.value;changed(true)};
  pn.append(ta,slider("大きさ",.02,.3,.005,()=>it.size,v=>{it.size=v},pct),h("div",{class:"btns"},colorIn("文字",it.fill,v=>it.fill=v),colorIn("縁",it.stroke,v=>it.stroke=v)),slider("縁取り",0,1,.05,()=>it.sw,v=>{it.sw=v},pct),
   sec("フォント"),chips(FONTS.map(f=>[f,f==="system"?"標準（太字）":f]),it.font,v=>{snap();it.font=v;loadFont(v);changed();renderPanel()}),
@@ -1854,8 +1869,10 @@ const ARANIM=[["shoot4","シュッと通過（上→右→左→下）"],["shoot
 const ARMAT=[["metal","メタル"],["iron","鉄"],["chrome","クローム"],["gold","ゴールド"],["flat","ベタ塗り"],["neon","ネオン"]];
 const AROL=[["none","枠なし"],["thin","細い枠"],["thick","太い黒枠"],["hollow","枠だけ"]];
 function arLen(it){const sp=it.aspd??1,a=it.anim||"shoot4";return (a==="shoot4"?.85*4:a==="shoot1"?.9:a==="ringio"?2.4:2.1)/sp}
+/* 矢印の速さはクリップの長さで決まる（短くすると速くなる） */
+function arSpd(it){const b=arLen({...it,aspd:1});return it.dur>.01?b/it.dur:(it.aspd??1)}
 function drawArrowFx(D,W,H,lt,it){const M=Math.min(W,H),TAU=Math.PI*2,col=it.fill||"#a35cff",c=[1,3,5].map(i=>parseInt(col.slice(i,i+2),16)||0),mix=(a,b,k)=>"rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*k)).join(",")+")";
- const mt=it.amat||"metal",ol=it.aol||"none",S=it.sw_??1,TH=it.ath??1,TL=it.atl??1,TR=it.atr??.5,sp=it.aspd??1,an=it.anim||"shoot4",t=lt*sp;
+ const mt=it.amat||"metal",ol=it.aol||"none",S=it.sw_??1,TH=it.ath??1,TL=it.atl??1,TR=it.atr??.5,sp=arSpd(it),an=it.anim||"shoot4",t=lt*sp;
  const geo=(len,th)=>{const hl=th*2,hw=th*1.3,s=th*.52;return {hl,hw,s,L:Math.max(len,hl*1.2)}};
  const path=(len,th)=>{const g=geo(len,th),L=g.L;D.beginPath();D.moveTo(L/2,0);D.lineTo(L/2-g.hl,-g.hw);D.lineTo(L/2-g.hl,-g.s);D.lineTo(-L/2,-g.s);D.lineTo(-L/2,g.s);D.lineTo(L/2-g.hl,g.s);D.lineTo(L/2-g.hl,g.hw);D.closePath()};
  const paint=(len,th,alpha)=>{const g=geo(len,th),hw=g.hw;D.save();D.globalAlpha*=alpha;path(len,th);let f;
@@ -1890,15 +1907,15 @@ function drawArrowFx(D,W,H,lt,it){const M=Math.min(W,H),TAU=Math.PI*2,col=it.fil
  else{const per=an==="ringio"?2.4:2.1;if(t<per)ring(t/per)}}
 function addArrowFx(){snap();const it=newItem(null,"shape",T,3.4,P.items.length?maxTrack()+1:0);it.shape="arrow";it.sw_=1;it.sh_=1;it.fill="#a35cff";it.anim="shoot4";it.amat="metal";it.aol="none";it.ath=1;it.atl=1;it.atr=.5;it.aspd=1;it.dur=arLen(it);P.items.push(it);refresh(false);select("item",it.id);openTool("shape");toast("矢印を追加しました。写真の上のレーンに置いて使ってね")}
 function addShape(){snap();const it=newItem(null,"shape",T,2,P.items.length?maxTrack()+1:0);P.items.push(it);refresh(false);select("item",it.id);openTool("shape")}
-function pShape(pn,it){if(!it||it.type!=="shape")return;
- if(it.shape==="arrow"){const set=(k,v)=>{snap();it[k]=v;if(k==="anim"){it.dur=arLen(it)}changed(true);renderPanel()};const ci=h("input",{type:"color",value:it.fill||"#a35cff"});ci.oninput=()=>{beginEdit();it.fill=ci.value;changed()};
+const AR2={};function pShape(pn,it){if(!it||it.type!=="shape")return;
+ if(it.shape==="arrow"){const set=(k,v)=>{snap();const sp0=arSpd(it);it[k]=v;if(k==="anim"){it.aspd=sp0;it.dur=arLen(it)}changed(true);renderPanel()};const ci=h("input",{type:"color",value:it.fill||"#a35cff"});ci.oninput=()=>{beginEdit();it.fill=ci.value;changed()};
   pn.append(sec("動き"),chips(ARANIM,it.anim||"shoot4",v=>set("anim",v)),it.anim==="shoot1"?chips([["up","上へ"],["right","右へ"],["left","左へ"],["down","下へ"]],it.adir||"up",v=>set("adir",v)):null,
    sec("質感"),chips(ARMAT,it.amat||"metal",v=>set("amat",v)),sec("枠"),chips(AROL,it.aol||"none",v=>set("aol",v)),
    h("div",{class:"btns"},h("label",{class:"chip",style:"display:flex;align-items:center;gap:8px"},"色",ci)),
    slider("大きさ",.5,1.8,.05,()=>it.sw_??1,v=>{it.sw_=v;it.sh_=v},pct),slider("太さ",.5,1.8,.05,()=>it.ath??1,v=>{it.ath=v},pct),slider("しっぽの長さ",.3,2,.05,()=>it.atl??1,v=>{it.atl=v},pct),
-   slider("残像",0,1,.05,()=>it.atr??.5,v=>{it.atr=v},pct),slider("速さ",.3,5,.05,()=>it.aspd??1,v=>{it.aspd=v},v=>v.toFixed(2)+"x"),slider("長さ",.2,8,.05,()=>arLen(it),v=>{const b=arLen({...it,aspd:1});it.aspd=clamp(b/v,.05,20);it.dur=v;return true},v=>v.toFixed(2)+"秒"),
-   h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>{snap();it.dur=arLen(it);changed(true);renderPanel()}},"クリップの長さを動きに合わせる")),
-   h("p",{class:"note"},"写真の切り替わりに合わせて、上のレーンに重ねて使うのがおすすめ。速さを変えたら上のボタンで長さを合わせてね。"));return}
+   slider("残像",0,1,.05,()=>it.atr??.5,v=>{it.atr=v},pct),(AR2.s=slider("速さ",.25,5,.05,()=>arSpd(it),v=>{it.aspd=v;it.dur=arLen({...it,aspd:1})/v;AR2.l._sync();return true},v=>v.toFixed(2)+"x")),(AR2.l=slider("長さ",.1,8,.05,()=>it.dur,v=>{it.dur=v;it.aspd=arSpd(it);AR2.s._sync();return true},v=>v.toFixed(2)+"秒")),
+   h("div",{class:"btns"},...[.5,1,1.5,2,3,5].map(x=>h("button",{class:"chip"+(Math.abs(arSpd(it)-x)<.03?" on":""),onclick:()=>{snap();it.aspd=x;it.dur=arLen({...it,aspd:1})/x;changed(true);renderPanel()}},x+"x"))),
+   h("p",{class:"note"},"速さと長さはつながってます。タイムラインでクリップを短くしたら、そのぶん速くなって最後までちゃんと動きます。"));return}
  if(it.shape==="magic"){const inp=h("input",{class:"txtin",value:it.mname??"AUR4",placeholder:"名前"});inp.oninput=()=>{beginEdit();it.mname=inp.value;changed()};
   pn.append(sec("名前"),inp,slider("止まる時間",0,.3,.01,()=>it.mhold??0,v=>{it.mhold=v},v=>v.toFixed(2)+"秒"),slider("名前の大きさ",.6,2.2,.05,()=>it.mfs??1.4,v=>{it.mfs=v},pct),
    slider("全体の大きさ",.1,2,.01,()=>it.sw_,v=>{it.sw_=v;it.sh_=v*(cv.width/cv.height)},pct),slider("最小の大きさ",.02,.3,.01,()=>it.mmin??.06,v=>{it.mmin=v},pct),slider("回りの勢い",0,3,.05,()=>it.mspd??1,v=>{it.mspd=v},v=>v.toFixed(2)+"x"),
@@ -2018,7 +2035,7 @@ async function renderAdmin(){const A=$("#admin");A.innerHTML="";const tabs=[["ho
    body.append(ta,h("div",{class:"btns"},h("button",{class:"btn pri",onclick:async()=>{if(!ta.value.trim())return;await SB.from("announcements").insert({body:ta.value.trim()});renderAdmin()}},"投稿する")));
    for(const n of data||[])body.append(h("div",{style:"border-bottom:1px solid var(--line);padding:9px 0"},h("div",{style:"font-size:13px;white-space:pre-wrap"},n.body),h("div",{style:"display:flex;justify-content:space-between;align-items:center"},h("span",{class:"note"},new Date(n.created_at).toLocaleString()),h("button",{class:"btn dng",onclick:async()=>{await SB.from("announcements").delete().eq("id",n.id);renderAdmin()}},"消す"))))}}
  catch(e){body.innerHTML="";body.append(h("p",{class:"note"},"読み込めませんでした："+(e.message||e)))}}
-function pConf(pn){pn.append(sec("プレビューの画質（重い時は軽いに）"),h("div",{class:"seg"},...[[540,"軽い"],[720,"ふつう"],[1080,"きれい"]].map(([v,l])=>h("button",{class:ST.pv===v?"on":"",onclick:()=>{ST.pv=v;saveST();PREVIEW_SHORT=v;resizeCanvas();renderPanel()}},l))),
+function pConf(pn){pn.append(h("div",{style:"display:flex;align-items:center;gap:8px;margin:8px 0"},h("b",{style:"flex:1"},"AURA "+APPV),h("button",{class:"btn",onclick:forceUpdate},"最新版に更新")),sec("プレビューの画質（重い時は軽いに）"),h("div",{class:"seg"},...[[540,"軽い"],[720,"ふつう"],[1080,"きれい"]].map(([v,l])=>h("button",{class:ST.pv===v?"on":"",onclick:()=>{ST.pv=v;saveST();PREVIEW_SHORT=v;resizeCanvas();renderPanel()}},l))),
   sec("切り替え「真ん中に集まって拡大」のブレ（付ける時の最初の値）"),slider("ブレ",0,1.5,.01,()=>ST.gblur??.6,v=>{ST.gblur=v;saveST()},pct),
   sec("効果音の自動設定：演出を付けると、決めた音も自動で入ります"));
  const auds=LIB.filter(e=>e.type==="audio");
@@ -2086,7 +2103,12 @@ function pSet(pn,o){if(!o)return;if(sel.k==="au")return pAudioSet(pn,o);const f=
  if(ty==="flash")pn.append(h("div",{class:"btns"},colorIn("色",f.color,v=>f.color=v)));
  if(["zoomblur","rgb","blurfx","bars"].includes(ty))pn.append(h("div",{class:"seg"},h("button",{class:f.decay?"":"on",onclick:()=>{snap();f.decay=false;changed();renderPanel()}},ty==="bars"?"スッと出る":"ずっと同じ"),h("button",{class:f.decay?"on":"",onclick:()=>{snap();f.decay=true;changed();renderPanel()}},ty==="bars"?"最初から":"だんだん弱く")));
  pn.append(h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>playRange(f.start-.3,f.start+f.dur+.3)},"▶ 試す"),h("button",{class:"btn",onclick:()=>{snap();f.start=T;changed(true);renderPanel()}},"再生位置に移動")))}
-function pAudioSet(pn,a){const md=(M[a.mid]||{}).dur||10;pn.append(slider("音量",0,2,.01,()=>a.vol??1,v=>{a.vol=v},pct),slider("開始",0,Math.max(10,duration()+2),.01,()=>a.start,v=>{a.start=v;return true},sec1),
+/* 素材の音が小さい時用：一番大きい所が同じくらいになるよう音量を自動で決める */
+async function autoLoud(o){try{ovShow("音の大きさを調べています…");const b=await DB.get("media",o.mid);const ac=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,44100,44100);
+ const ab=await b.arrayBuffer();const buf=await new Promise((res,rej)=>{const pr=ac.decodeAudioData(ab,res,rej);if(pr&&pr.catch)pr.catch(rej)});
+ let pk=0,ss=0,n=0;const t0=Math.floor((o.trimIn||0)*buf.sampleRate),t1=Math.min(buf.length,t0+Math.floor((o.dur||buf.duration)*buf.sampleRate));for(let ch=0;ch<buf.numberOfChannels;ch++){const d=buf.getChannelData(ch);for(let i=t0;i<t1;i+=2){const v=Math.abs(d[i]);if(v>pk)pk=v;ss+=v*v;n++}}
+ const rms=Math.sqrt(ss/Math.max(1,n));ovHide();if(pk<1e-4)return toast("音が入っていないみたい");snap();o.vol=+clamp(Math.min(.95/pk,.25/Math.max(rms,1e-4)),.1,3).toFixed(2);changed(true);renderPanel();toast("音量を"+Math.round(o.vol*100)+"%にしました")}catch(e){ovHide();toast("この音は調べられませんでした")}}
+function pAudioSet(pn,a){const md=(M[a.mid]||{}).dur||10;pn.append(slider("音量",0,3,.01,()=>a.vol??1,v=>{a.vol=v},pct),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>autoLoud(a)},"音の大きさを自動でそろえる")),slider("開始",0,Math.max(10,duration()+2),.01,()=>a.start,v=>{a.start=v;return true},sec1),
  slider("長さ",.1,Math.max(.1,md-a.trimIn),.01,()=>a.dur,v=>{a.dur=v;return true},sec1),slider("曲のどこから",0,Math.max(0,md-.1),.01,()=>a.trimIn,v=>{a.trimIn=v;a.dur=Math.min(a.dur,md-v);return true},sec1),
  slider("フェードイン",0,5,.05,()=>a.fin||0,v=>{a.fin=v},sec1),slider("フェードアウト",0,5,.05,()=>a.fout||0,v=>{a.fout=v},sec1))}
 function addText(){snap();const it=newItem(null,"text",T,2,P.items.length?maxTrack()+1:0);Object.assign(it,{text:"テキスト",size:.08,fill:"#ffffff",stroke:"#000000",sw:0});P.items.push(it);refresh(false);select("item",it.id);openTool("text")}
@@ -2390,7 +2412,7 @@ async function mixAudio(dur){const srcs=[...P.audio.filter(a=>!audMuted(a)).map(
  const oc=new OfflineAudioContext(2,Math.ceil(dur*48000),48000),dec=new (window.AudioContext||window.webkitAudioContext)(),cache={};let any=false;
  for(const {o,v} of srcs){try{let bf=cache[o.mid];if(!bf){const blob=await DB.get("media",o.mid);if(!blob)continue;bf=await dec.decodeAudioData(await blob.arrayBuffer());cache[o.mid]=bf}
    const rate=v?clamp(avgSpeed(o),.1,8):1;if(v&&(rate>4||rate<.25||o.rev))continue;
-   const s=oc.createBufferSource();s.buffer=bf;s.playbackRate.value=rate;const g=oc.createGain();s.connect(g);g.connect(oc.destination);const vol=clamp(o.vol??1,0,2);
+   const s=oc.createBufferSource();s.buffer=bf;s.playbackRate.value=rate;const g=oc.createGain();s.connect(g);g.connect(oc.destination);const vol=clamp(o.vol??1,0,3);
    g.gain.setValueAtTime(o.fin>0?0:vol,o.start);if(o.fin>0)g.gain.linearRampToValueAtTime(vol,o.start+o.fin);if(o.fout>0){g.gain.setValueAtTime(vol,Math.max(o.start,o.start+o.dur-o.fout));g.gain.linearRampToValueAtTime(0,o.start+o.dur)}
    s.start(o.start,o.trimIn,o.dur*rate);any=true}catch(e){}}
  try{dec.close()}catch(e){}return any?await oc.startRendering():null}
@@ -2421,7 +2443,7 @@ async function exportFrames(short,fps){
  muxer.finalize();exporting=null;T=0;setScroll();syncMedia();showDone(new Blob([muxer.target.buffer],{type:"video/mp4"}),"mp4",mix&&!ac?"この端末では音を入れられませんでした。":null)}
 function pickMime(){if(!window.MediaRecorder)return null;for(const m of ["video/mp4;codecs=avc1.640028,mp4a.40.2","video/mp4;codecs=avc1,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"])if(MediaRecorder.isTypeSupported(m))return m;return ""}
 function startExport(short,fps=60){const mime=pickMime();if(mime===null||!cv.captureStream){ovShow("このブラウザは書き出しに対応していません。Chromeで開いてね。");setTimeout(ovHide,2500);return}
- pause();ensureAudio();const [w,hh]=sizeFor(short);const c=document.createElement("canvas");c.width=w;c.height=hh;const x=c.getContext("2d");
+ pause();needDest();const [w,hh]=sizeFor(short);const c=document.createElement("canvas");c.width=w;c.height=hh;const x=c.getContext("2d");
  const stream=c.captureStream(fps);if(DEST)DEST.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
  let rec;try{rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:short>=1080?16e6:8e6}:{})}catch(e){ovShow("書き出しを始められませんでした。");setTimeout(ovHide,2000);return}
  const chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
@@ -2432,8 +2454,9 @@ function finishExport(){const ex=exporting;playing=false;stopAud();syncMedia();s
 function cancelExport(){if(!exporting)return ovHide();exporting.cancel=true;playing=false;stopAud();syncMedia();setPlayIcon();try{exporting.rec.stop()}catch(e){exporting=null;ovHide()}}
 
 /* ================= 起動 ================= */
-function revive(){for(const k in EL)relEl(k);if(AC&&AC.state==="suspended"&&playing)AC.resume();syncMedia();needDraw=true;setTimeout(()=>{syncMedia();needDraw=true},400)}
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")revive();else if(playing)pause()});
+let hidAt=0;function revive(){const long=hidAt&&performance.now()-hidAt>20000;resetAudio();for(const k in ERRN)delete ERRN[k];needDraw=true;(long?refreshUrls():Promise.resolve()).then(()=>{for(const k of Object.keys(EL))relEl(k);syncMedia();needDraw=true})}
+document.addEventListener("pointerdown",()=>{if(AC&&AC.state!=="running")ensureAudio()},true);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")revive();else{hidAt=performance.now();if(playing)pause()}});
 window.addEventListener("pageshow",e=>{if(e.persisted)revive()});
 document.addEventListener("keydown",e=>{if(e.target.tagName==="TEXTAREA"||e.target.tagName==="INPUT")return;if(e.code==="Space"){e.preventDefault();playing?pause():play()}});
 (async()=>{setPlayIcon();updUndo();await DB.open();try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}await libLoad();
