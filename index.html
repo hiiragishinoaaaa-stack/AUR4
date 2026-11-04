@@ -1373,7 +1373,7 @@ window.addEventListener("pointermove",e=>{if(!od)return;if(!od.started){if(Math.
  const created=setProp(it,patch);markFast();needDraw=true;if(created){buildTL();updKfBtn()}updMoveVals()});
 window.addEventListener("pointerup",()=>{if(!od)return;const was=od.started;od=null;ovl._k="";if(was){save();buildTL();updKfBtn();if(tool)renderPanel()}needDraw=true});
 window.addEventListener("resize",()=>{ovl._k="";needDraw=true});
-const APPV="v33";
+const APPV="v34";
 async function forceUpdate(){ovShow("最新版を読み込んでいます…");try{await saveNow()}catch(e){}try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.update().catch(()=>{})))}catch(e){}location.replace(location.pathname+"?v="+Date.now())}
 setTimeout(()=>{try{const lv=localStorage.getItem("aura_v");if(lv!==APPV){localStorage.setItem("aura_v",APPV);if(lv)toast("AURA "+APPV+" に更新されました")}}catch(e){}},1500);
 let fastUntil=0,fastPend=false;const fastC=document.createElement("canvas"),fastX=fastC.getContext("2d");let PICK=null;document.addEventListener("pointerdown",e=>{if(!PICK)return;const r=cv.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;e.preventDefault();e.stopImmediatePropagation();const f=PICK;PICK=null;f(clamp((e.clientX-r.left)/r.width),clamp((e.clientY-r.top)/r.height))},true);
@@ -2096,29 +2096,46 @@ function pConf(pn){pn.append(h("div",{style:"display:flex;align-items:center;gap
  if(!auds.length)pn.append(h("p",{class:"note"},"先に「素材」で効果音を登録してね（内蔵の効果音も作れます）。"),h("div",{class:"btns"},h("button",{class:"btn",onclick:async()=>{await makeBuiltinSE();tool="conf";renderPanel()}},"内蔵の効果音を作る")));
  else for(const [k,l] of [["trans","切り替えを付けた時"],["shake","シェイクを付けた時"],["flash","フラッシュを付けた時"],["dent","時空歪みで ぱんっ と戻る瞬間"]])pn.append(h("div",{class:"sec"},l),chips([["","なし"],...auds.map(e=>[e.id,e.name])],ST.se[k]||"",v=>{if(v)ST.se[k]=v;else delete ST.se[k];saveST();renderPanel()}));
  pn.append(sec("バックアップ（機種変更・引っ越し用）"),h("p",{class:"note",style:"margin-top:0"},"プロジェクト・素材・効果音・設定をファイル1個にまとめます。新しい場所で読み込めば全部戻ります。"),
-  h("div",{class:"btns"},h("button",{class:"btn pri",onclick:exportBackup},"バックアップを書き出す"),h("button",{class:"btn",onclick:()=>$("#fBk").click()},"バックアップを読み込む")),sec("アカウント"),accountBox())}
-async function exportBackup(){ovShow("バックアップを作っています…");try{await saveNow();libSave();
- const entries=[],parts=[];let off=0;
- for(const k of await DB.keys("kv")){const v=await DB.get("kv",k);const str=typeof v==="string";const b=new Blob([str?v:JSON.stringify(v)]);entries.push({s:"kv",k,size:b.size,off,str});parts.push(b);off+=b.size}
- for(const k of await DB.keys("media")){const b=await DB.get("media",k);if(!(b instanceof Blob))continue;entries.push({s:"media",k,size:b.size,off,type:b.type});parts.push(b);off+=b.size}
- const head=new TextEncoder().encode(JSON.stringify({v:1,app:"AURA",at:Date.now(),entries,st:ST})),hl=new Uint8Array(4);new DataView(hl.buffer).setUint32(0,head.length,true);
+  h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>exportBackup()},"書き出す・送る"),h("button",{class:"btn",onclick:()=>$("#fBk").click()},"読み込む")),h("p",{class:"note"},"PCでは .aura ファイルを画面にドラッグ＆ドロップしても読み込めます。"),sec("アカウント"),accountBox())}
+async function exportBackup(mode){if(mode!=="cur"&&mode!=="all")return pickExport();ovShow("ファイルを作っています…");try{await saveNow();libSave();
+ const one=mode==="cur"&&curId,entries=[],parts=[];let off=0;const add=(e,b)=>{entries.push({...e,size:b.size,off});parts.push(b);off+=b.size};
+ const pe=projects.find(x=>x.id===curId);
+ if(one){add({s:"kv",k:"projects",str:true},new Blob([JSON.stringify(pe?[pe]:[])]));add({s:"kv",k:"p:"+curId,str:true},new Blob([JSON.stringify(P)]));
+  const ids=new Set(Object.keys(P.media||{}));const libs=LIB.filter(e=>ids.has(e.id));add({s:"kv",k:"library",str:true},new Blob([JSON.stringify(libs)]));
+  for(const k of ids){const b=await DB.get("media",k);if(b instanceof Blob)add({s:"media",k,type:b.type},b)}}
+ else{for(const k of await DB.keys("kv")){const v=await DB.get("kv",k);const str=typeof v==="string";add({s:"kv",k,str},new Blob([str?v:JSON.stringify(v)]))}
+  for(const k of await DB.keys("media")){const b=await DB.get("media",k);if(b instanceof Blob)add({s:"media",k,type:b.type},b)}}
+ const head=new TextEncoder().encode(JSON.stringify({v:1,app:"AURA",at:Date.now(),one:!!one,entries,st:one?undefined:ST})),hl=new Uint8Array(4);new DataView(hl.buffer).setUint32(0,head.length,true);
  const blob=new Blob([new TextEncoder().encode("AURABK1"),hl,head,...parts],{type:"application/octet-stream"});
- const d=new Date(),name=`AURA_backup_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.aura`,mb=(blob.size/1048576).toFixed(1);
- const a=h("a",{href:URL.createObjectURL(blob),download:name,class:"btn pri",style:"text-decoration:none;color:#fff"},"保存する");
- const o=$("#ov");o.innerHTML="";o.append(h("b",null,"バックアップができました"),h("p",{class:"note"},`${name}（${mb}MB）\nプロジェクト${projects.length}個・素材${LIB.length}個`),a,h("button",{class:"btn",onclick:ovHide},"閉じる"),h("p",{class:"note",style:"max-width:280px"},"「ダウンロード」フォルダに保存されます。新しい場所のAURAで「設定 → バックアップを読み込む」で戻せます。"));o.classList.add("open");a.click()}
- catch(e){ovHide();toast("バックアップを作れませんでした")}}
+ const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}`;
+ const nm=one?(((pe&&pe.name)||P.name||"project").replace(/[\\/:*?"<>|\s]+/g,"_").slice(0,30)):"backup",name=`AURA_${nm}_${ds}.aura`,mb=(blob.size/1048576).toFixed(1);
+ const file=new File([blob],name,{type:"application/octet-stream"});let canShare=false;try{canShare=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){}
+ const a=h("a",{href:URL.createObjectURL(blob),download:name,class:"btn"+(canShare?"":" pri"),style:"text-decoration:none;"+(canShare?"":"color:#fff")},"保存する");
+ const o=$("#ov");o.innerHTML="";o.append(h("b",null,one?"プロジェクトを書き出しました":"バックアップができました"),h("p",{class:"note"},`${name}（${mb}MB）\n`+(one?`素材${parts.length-3}個入り`:`プロジェクト${projects.length}個・素材${LIB.length}個`)),
+  ...(canShare?[h("button",{class:"btn pri",onclick:async()=>{try{await navigator.share({files:[file],title:name})}catch(e){}}},"送る（LINE・ドライブ・Quick Shareなど）")]:[]),a,h("button",{class:"btn",onclick:ovHide},"閉じる"),
+  h("p",{class:"note",style:"max-width:290px"},"送った先（PCなど）のAURAに、このファイルをドラッグ＆ドロップするか「読み込む」で入れてね。同じプロジェクトがあれば新しい方に上書きされます。"));o.classList.add("open");if(!canShare)a.click()}
+ catch(e){ovHide();toast("書き出せませんでした")}}
+function pickExport(){const o=$("#ov");o.innerHTML="";o.append(h("b",null,"書き出す内容"),
+ h("button",{class:"btn pri",onclick:()=>exportBackup("cur")},"今のプロジェクトだけ（軽い・他の端末へ送る用）"),
+ h("button",{class:"btn",onclick:()=>exportBackup("all")},"全部（機種変更・バックアップ用）"),h("button",{class:"btn",onclick:ovHide},"やめる"));o.classList.add("open")}
 async function importBackup(file){let head,base;try{if(await file.slice(0,7).text()!=="AURABK1")throw 0;const hl=new DataView(await file.slice(7,11).arrayBuffer()).getUint32(0,true);head=JSON.parse(await file.slice(11,11+hl).text());base=11+hl}catch(e){return toast("AURAのバックアップファイルではありません")}
- if(!confirm("バックアップを読み込みますか？\n今あるデータは消えずに、そのまま追加されます。"))return;ovShow("読み込み中…");
- try{let bp=[],bl=[];
+ if(!confirm(head.one?"このプロジェクトを読み込みますか？\n同じプロジェクトがあれば、新しい方に上書きします。":"バックアップを読み込みますか？\n今あるデータは消えません。同じプロジェクトは新しい方に上書きします。"))return;ovShow("読み込み中…");
+ try{let bp=[],bl=[],nu=0,reCur=false;
+  const pe=head.entries.find(e=>e.s==="kv"&&e.k==="projects");if(pe){try{bp=JSON.parse(await file.slice(base+pe.off,base+pe.off+pe.size).text())}catch(x){}}
+  if(curId)await saveNow();
   for(const e of head.entries){const part=file.slice(base+e.off,base+e.off+e.size);
    if(e.s==="media"){if(!(await DB.get("media",e.k)))await DB.put("media",e.k,new Blob([part],{type:e.type||""}))}
-   else{const txt=await part.text();if(e.k==="projects"){try{bp=JSON.parse(txt)}catch(x){}}else if(e.k==="library"){try{bl=JSON.parse(txt)}catch(x){}}else if(e.k==="cur"||e.k==="project"){}else if(!(await DB.get("kv",e.k)))await DB.put("kv",e.k,e.str?txt:JSON.parse(txt))}}
-  let n=0;for(const p of bp)if(!projects.find(x=>x.id===p.id)){projects.push(p);n++}await DB.put("kv","projects",JSON.stringify(projects));
+   else{const txt=await part.text();if(e.k==="projects"){try{bp=JSON.parse(txt)}catch(x){}}else if(e.k==="library"){try{bl=JSON.parse(txt)}catch(x){}}else if(e.k==="cur"||e.k==="project"){}else if(String(e.k).startsWith("p:")){const id=String(e.k).slice(2),mine=projects.find(x=>x.id===id),theirs=bp.find(x=>x.id===id);
+     if(!mine||!(await DB.get("kv",e.k))){await DB.put("kv",e.k,txt)}else if(theirs&&(theirs.updated||0)>(mine.updated||0)){await DB.put("kv",e.k,txt);mine.updated=theirs.updated;if(theirs.name)mine.name=theirs.name;nu++;if(id===curId)reCur=true}}
+    else if(!(await DB.get("kv",e.k)))await DB.put("kv",e.k,e.str?txt:JSON.parse(txt))}}
+  let n=0;for(const p of bp)if(!projects.find(x=>x.id===p.id)){projects.push(p);n++}projects.sort((a,b)=>(b.updated||0)-(a.updated||0));await DB.put("kv","projects",JSON.stringify(projects));
   for(const e of bl)if(!LIB.find(x=>x.id===e.id))LIB.push(e);libSave();
-  if(head.st){ST={...head.st,...ST,se:{...(head.st.se||{}),...(ST.se||{})}};saveST()}
-  ovHide();toast(`プロジェクト${n}個・素材${bl.length}個を読み込みました`);tool="proj";setBodyPanel();renderNav();renderPanel()}
+  if(head.st&&!head.one){ST={...head.st,...ST,se:{...(head.st.se||{}),...(ST.se||{})}};saveST()}
+  if(reCur){await loadProject(curId)}ovHide();toast(`新しく${n}個・更新${nu}個`+(head.one?"":`・素材${bl.length}個`)+"を読み込みました");tool="proj";setBodyPanel();renderNav();renderPanel()}
  catch(e){ovHide();toast("読み込み中にエラーが起きました")}}
 $("#fBk").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f)importBackup(f)};
+window.addEventListener("dragover",e=>{if(e.dataTransfer&&[...e.dataTransfer.items||[]].some(i=>i.kind==="file")){e.preventDefault()}});
+window.addEventListener("drop",async e=>{const fs=[...(e.dataTransfer&&e.dataTransfer.files)||[]];if(!fs.length)return;let bk=null;for(const f of fs){try{if(await f.slice(0,7).text()==="AURABK1"){bk=f;break}}catch(x){}}if(bk){e.preventDefault();e.stopPropagation();importBackup(bk)}},true);
 function colorIn(label,v0,set){const i=h("input",{type:"color",value:v0||"#ffffff"});i.oninput=()=>{beginEdit();set(i.value);changed()};return h("label",{class:"chip",style:"display:flex;align-items:center;gap:8px"},label,i)}
 function pRatio(pn){pn.append(chips(Object.keys(RATIOS).map(k=>[k,{"9:16":"9:16 縦","16:9":"16:9 横","1:1":"1:1 正方形","4:5":"4:5","3:4":"3:4","21:9":"21:9 シネマ"}[k]]),P.ratio,v=>{snap();P.ratio=v;resizeCanvas();refresh(true)}))}
 function newFx(type,start,dur){if(type==="squash")return {id:uid(),type,start,dur,tg:"",axis:"sq",sq:.12,hz:5,damp:.55,pop:true,trig:"first",count:2,anc:"b",cover:true,blur:.4,amount:.5};if(type==="dent")return {id:uid(),type,start,dur,amount:.6,dent:.32,ddir:"in",tame:.45,flash:.7,len:.8,hz:11,blur:.7,rgb:.15,mode:"hit",env:"flat",zoom:0,rot:0,ramp:0};return {id:uid(),type,start,dur,amount:type==="flash"?.9:type==="strobe"?1:.5,count:type==="strobe"?4:1,decay:["zoomblur"].includes(type),env:"flat",rgb:type==="shake"?.15:0,zoom:0,rot:0,ramp:0,len:.8,mode:type==="lens"?"pinch":type==="shake"?"hit":"circle",color:"#ffffff",mode:"circle",hz:9,blur:.6,...(type==="camera"?{base:defBase(),kf:[]}:{})}}
@@ -2221,7 +2238,7 @@ function splitCore(it){const c=JSON.parse(JSON.stringify(it));c.id=uid();const c
  it.dur=cut;it.tout={type:"none",dur:.3};P.items.push(c);return c}
 function splitAt(it){if(!(T>it.start+.05&&T<it.start+it.dur-.05)){toast("再生位置をクリップの上に合わせてね");return}snap();const c=splitCore(it);refresh(false);select("item",c.id)}
 function splitAudio(a){if(!(T>a.start+.05&&T<a.start+a.dur-.05)){toast("再生位置を音の上に合わせてね");return}snap();const c={...a,id:uid()},cut=T-a.start;c.start=T;c.dur=a.dur-cut;c.trimIn=a.trimIn+cut;a.dur=cut;P.audio.push(c);refresh(false);select("au",c.id)}
-function pProj(pn){pn.append(h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>newProjectEntry()},"＋ 新しいプロジェクト"),h("button",{class:"btn",onclick:showBackups},"自動保存から戻す")),h("div",{class:"btns"},h("button",{class:"btn",onclick:exportBackup},"バックアップを書き出す"),h("button",{class:"btn",onclick:()=>$("#fBk").click()},"バックアップを読み込む")),h("p",{class:"note",style:"margin-top:0"},"書き出したファイル（.aura）を別のスマホやPCのAURAで「バックアップを読み込む」すると、作品も素材も全部そのまま移せます。"));
+function pProj(pn){pn.append(h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>newProjectEntry()},"＋ 新しいプロジェクト"),h("button",{class:"btn",onclick:showBackups},"自動保存から戻す")),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>exportBackup()},"書き出す・送る"),h("button",{class:"btn",onclick:()=>$("#fBk").click()},"読み込む")),h("p",{class:"note",style:"margin-top:0"},"「書き出す・送る」→「今のプロジェクトだけ」でPCに送って、PCのAURAに .aura をドロップすれば続きができます。"));
  for(const p of projects){const cur=p.id===curId,d=new Date(p.updated||Date.now());
   pn.append(h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0"},
    h("div",{style:"flex:1;min-width:0"},h("div",{style:`font-weight:${cur?700:400};color:${cur?"var(--acc2)":"inherit"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`},(cur?"● ":"")+p.name),h("div",{class:"note",style:"margin:2px 0 0"},`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`)),
