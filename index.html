@@ -701,7 +701,7 @@ const EASE={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*t
 const EASE_L=[["linear","一定"],["out","ゆっくり止まる"],["in","ゆっくり始まる"],["inout","なめらか"],["expo","急→ピタッ"],["hold","止めて切り替え"]];
 const RATIOS={"9:16":[9,16],"16:9":[16,9],"1:1":[1,1],"4:5":[4,5],"3:4":[3,4],"21:9":[21,9]};
 const TRANS=[["none","なし"],["fade","フェード"],["black","黒から"],["white","白フラッシュ"],["zoom","ズーム"],["zoomblur","ズームブラー"],["slide","スライド"],["spin","回転"],["blur","ぼかし"],["pop","ぽんっと出る"],["drop","上から落ちてバウンド"],["rise","下からふわっ"],["slidel","左からスライド"],["whipin","しゅっと横から"],["bigzoom","大きく→ピタッ"],["spinpop","くるっと出る"],["flicker","チカチカ"]];
-const PAIR=[["gather_ud","真ん中に集まって拡大（上下）"],["gather_lr","真ん中に集まって拡大（左右）"],["gather_4","真ん中に集まって拡大（4すみ）"],["gather_lrv","真ん中に集まって拡大（縦割り・左右）"],["gather_udv","真ん中に集まって拡大（縦割り・上下）"],["shape_circle","円で拡大（真ん中から）"],["shape_diamond","ひし形で拡大"],["shape_square","四角で拡大"],["shape_star","星で拡大"],["shape_heart","ハートで拡大"],["shape_hex","六角形で拡大"],["shape_tri","三角で拡大"],["shape_cross","十字で拡大"],["shape_dots","水玉で切り替え"],["shape_grid","四角がパタパタ"],["shape_dgrid","ひし形がパタパタ"],["wipe_cut","斬撃（斬って割れる）"],["wipe_slash","斜めにシャキッ"],["wipe_stripe","斜めストライプ"],["wipe_slice","スライスでシャキシャキ"],["wipe_bar","バーで横切る"],["wipe_zigzag","ギザギザ"],["wipe_clock","時計回り"],["wipe_splith","上下に割れる"],["wipe_quad","4つに割れて飛ぶ"],["fade_white","白を通ってフェード"],["fade_black","黒を通ってフェード"],["fade_glow","光ってフェード"],["fade_luma","明るい所からフェード"],["fade_zoom","ズームしながらフェード"],["fade_soft","やわらかく流れる"],["ref2_barcode","バーコード状に開く"],["ref2_cardc","斜めカードがその場で拡大"],["ref2_side","両端から寄ってカード→拡大"],["ref2_blocks","ブロックが集まってカード"],["ref2_diamond","ひし形カード→拡大"],["ref2_slicev","縦スライスで切り替え"],["ref2_white","白いカード→中身が出る"],["ref2_lens","レンズで出てくる"],["ref2_panels","白い板で半分ずつ"],["ref2_glass","ガラスの丸で出てくる"],["ref2_mirror","鏡みたいに縦スクロール"],["ref_lid","上下から閉じる（まぶた）"],["ref_circlehold","丸く出て止まる→ドン"],["ref_lumapop","明るい所から飛び出す"],["ref_fan12","放射状に一瞬で割れる"],["ref_cardl","左から斜めのカード→拡大"],["ref_rise","下から帯が伸びて開く"],["ref_xsplit","X字に割れて切り替え"],["ref_half","半分ずつ切り替え"],["ref_cardpop","真ん中のカード→拡大"],["open_slit","スリットで開く（縦）"],["open_slith","スリットで開く（横）"],["open_slitd","スリットで開く（斜め）"],["open_circle","点から丸く開く"],["open_dia","点からひし形に開く"],["open_fan","放射状に開く"],["open_jag","ギザギザに開く"],["fade_rgb","色ズレフェード"],["fade_bandh","真ん中から横に広がる"],["fade_bandv","真ん中から縦に広がる"],["fade_radial","真ん中から丸く広がる（ふんわり）"],["fade_blur","ぼかしてフェード"],["fade_dark","暗い所からフェード"],["fade_ripple","波紋フェード"],["fade_spin","回転フェード"],["fade_leak","光漏れフェード"],["fade_zoomout","ズームアウトフェード"],["glitchsuck","バグって吸い込み"],["jikuu","時空歪み"],["suck","吸い込み"],["splitsuck","割れて吸い込み"],["uzu","渦巻き"],["glitch","バグ切り替え"],["right","右から入る"],["left","左から入る"],["up","上から入る"],["down","下から入る"],["card","カードで飛んできて拡大"],["wipe_line","白い線が通って切り替え"],["wipe_pizza","ピザ（4枚が回って開く）"],["wipe_pizza6","ピザ（6枚）"],["wipe_pizza8","ピザ（8枚）"],["wipe_chev","曲がって切れる（くの字が開く）"],["vshake","激しい揺れで切り替え（縦に伸びて白フラッシュ）"],["wipe_split2","半分に切れてずれる"],["wipe_wedge","放射状に切れて入る"],["zoomin","ズームで突き抜け"],["zoomout","ズームアウト"],["zoomwhip","ズームで流れる"],["shard","破片（三角割れ）"],["tri_fade","3分割（フェードで上から）"],["tri_fadev","縦3分割（フェード）"],["tri_down","3分割（上から）"],["tri_lr","3分割（左右から）"],["tri_up","3分割（下から）"],["tri_col","縦3分割"],["spinswap","回転"],["whiteflash","白フラッシュ"],["rgbflash","RGBフラッシュ"],["shakecut","シェイク切り替え"],["stretch","伸びる"],["pixel","ピクセル"],["wave","波打つ"],["circle","丸く広がる"],["flip","裏返し"],["blurx","ぼかし"],["door","ドアが開く"],["blinds","ブラインド"],["liquid","ぐにゃっと"],["burn","燃えて切り替え"],["tiles","タイルめくり"],["zoomspin","ズームスピン"],["echo","残像"],["dissolve","ドット消え"],["xfade","クロスフェード"]];
+const PAIR=[["gather_ud","真ん中に集まって拡大（上下）"],["gather_lr","真ん中に集まって拡大（左右）"],["gather_4","真ん中に集まって拡大（4すみ）"],["gather_lrv","真ん中に集まって拡大（縦割り・左右）"],["gather_udv","真ん中に集まって拡大（縦割り・上下）"],["shape_circle","円で拡大（真ん中から）"],["shape_diamond","ひし形で拡大"],["shape_square","四角で拡大"],["shape_star","星で拡大"],["shape_heart","ハートで拡大"],["shape_hex","六角形で拡大"],["shape_tri","三角で拡大"],["shape_cross","十字で拡大"],["shape_dots","水玉で切り替え"],["shape_grid","四角がパタパタ"],["shape_dgrid","ひし形がパタパタ"],["wipe_cut","斬撃（斬って割れる）"],["wipe_slash","斜めにシャキッ"],["wipe_stripe","斜めストライプ"],["wipe_slice","スライスでシャキシャキ"],["wipe_bar","バーで横切る"],["wipe_zigzag","ギザギザ"],["wipe_clock","時計回り"],["wipe_splith","上下に割れる"],["wipe_quad","4つに割れて飛ぶ"],["fade_white","白を通ってフェード"],["fade_black","黒を通ってフェード"],["fade_glow","光ってフェード"],["fade_luma","明るい所からフェード"],["fade_zoom","ズームしながらフェード"],["fade_soft","やわらかく流れる"],["ref2_barcode","バーコード状に開く"],["ref2_cardc","斜めカードがその場で拡大"],["ref2_side","両端から寄ってカード→拡大"],["ref2_blocks","ブロックが集まってカード"],["ref2_diamond","ひし形カード→拡大"],["ref2_slicev","縦スライスで切り替え"],["ref2_white","白いカード→中身が出る"],["ref2_lens","レンズで出てくる"],["ref2_panels","白い板で半分ずつ"],["ref2_glass","ガラスの丸で出てくる"],["ref2_mirror","鏡みたいに縦スクロール"],["ref_lid","上下から閉じる（まぶた）"],["ref_circlehold","丸く出て止まる→ドン"],["ref_lumapop","明るい所から飛び出す"],["ref_fan12","放射状に一瞬で割れる"],["ref_cardl","左から斜めのカード→拡大"],["ref_rise","下から帯が伸びて開く"],["ref_xsplit","X字に割れて切り替え"],["ref_half","半分ずつ切り替え"],["ref_cardpop","真ん中のカード→拡大"],["open_slit","スリットで開く（縦）"],["open_slith","スリットで開く（横）"],["open_slitd","スリットで開く（斜め）"],["open_circle","点から丸く開く"],["open_dia","点からひし形に開く"],["open_fan","放射状に開く"],["open_jag","ギザギザに開く"],["fade_rgb","色ズレフェード"],["fade_bandh","真ん中から横に広がる"],["fade_bandv","真ん中から縦に広がる"],["fade_radial","真ん中から丸く広がる（ふんわり）"],["fade_blur","ぼかしてフェード"],["fade_dark","暗い所からフェード"],["fade_ripple","波紋フェード"],["fade_spin","回転フェード"],["fade_leak","光漏れフェード"],["fade_zoomout","ズームアウトフェード"],["glitchsuck","バグって吸い込み"],["jikuu","時空歪み"],["suck","吸い込み"],["splitsuck","割れて吸い込み"],["uzu","渦巻き"],["glitch","バグ切り替え"],["right","右から入る"],["left","左から入る"],["up","上から入る"],["down","下から入る"],["card","カードで飛んできて拡大"],["rise_up","小さく下から→真ん中→拡大"],["rise_down","小さく上から→真ん中→拡大"],["rise_left","小さく左から→真ん中→拡大"],["rise_right","小さく右から→真ん中→拡大"],["wipe_line","白い線が通って切り替え"],["wipe_pizza","ピザ（4枚が回って開く）"],["wipe_pizza6","ピザ（6枚）"],["wipe_pizza8","ピザ（8枚）"],["wipe_chev","曲がって切れる（くの字が開く）"],["vshake","激しい揺れで切り替え（縦に伸びて白フラッシュ）"],["wipe_split2","半分に切れてずれる"],["wipe_wedge","放射状に切れて入る"],["zoomin","ズームで突き抜け"],["zoomout","ズームアウト"],["zoomwhip","ズームで流れる"],["shard","破片（三角割れ）"],["tri_fade","3分割（フェードで上から）"],["tri_fadev","縦3分割（フェード）"],["tri_down","3分割（上から）"],["tri_lr","3分割（左右から）"],["tri_up","3分割（下から）"],["tri_col","縦3分割"],["spinswap","回転"],["whiteflash","白フラッシュ"],["rgbflash","RGBフラッシュ"],["shakecut","シェイク切り替え"],["stretch","伸びる"],["pixel","ピクセル"],["wave","波打つ"],["circle","丸く広がる"],["flip","裏返し"],["blurx","ぼかし"],["door","ドアが開く"],["blinds","ブラインド"],["liquid","ぐにゃっと"],["burn","燃えて切り替え"],["tiles","タイルめくり"],["zoomspin","ズームスピン"],["echo","残像"],["dissolve","ドット消え"],["xfade","クロスフェード"]];
 const PAIRSET=new Set(PAIR.map(a=>a[0]));
 const FXT={camera:"カメラ",shake:"シェイク",squash:"ふわんふわん（つぶれ揺れ）",dent:"時空歪み（ためてドン）",lens:"広角レンズ",sharpen:"高画質化（シャープ）",halftone:"漫画トーン",edge:"線画",vhs:"VHS",leak:"光漏れ",bloom:"ブルーム",mosaic:"モザイク",posterize:"ポスタライズ",wavefx:"ゆらぎ",flash:"フラッシュ",strobe:"黒フラッシュ",glitch:"グリッチ",zoomblur:"ズームブラー",pulse:"ズームパルス",rgb:"RGBずれ",invert:"反転",blurfx:"ぼかし",vignette:"ビネット",grain:"フィルムノイズ",bars:"シネマバー"};
 const BLENDS=[["source-over","通常"],["screen","スクリーン"],["lighter","加算"],["multiply","乗算"],["overlay","オーバーレイ"],["soft-light","ソフトライト"],["hard-light","ハードライト"],["color-dodge","覆い焼き"],["difference","差の絶対値"],["luminosity","輝度"]];
@@ -898,9 +898,9 @@ let saveTimer=0;
 let curId=null,projects=[];
 function save(){clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,500)}
 let lastBk=0;async function saveNow(){clearTimeout(saveTimer);if(!curId)return;const js=JSON.stringify(P);await DB.put("kv","p:"+curId,js);
- if(Date.now()-lastBk>150000&&(P.items.length||P.fx.length||P.audio.length)){lastBk=Date.now();try{let bk=[];try{bk=JSON.parse(await DB.get("kv","bk:"+curId)||"[]")}catch(e){}bk.unshift({t:Date.now(),s:js});bk=bk.slice(0,4);await DB.put("kv","bk:"+curId,JSON.stringify(bk))}catch(e){}}const e=projects.find(p=>p.id===curId);if(e){e.updated=Date.now();if(P.name)e.name=P.name}await DB.put("kv","projects",JSON.stringify(projects))}
-async function loadProject(id){const s=await DB.get("kv","p:"+id);let p=null;try{p=s?JSON.parse(s):null}catch(e){}if(!p||!(p.v===2||p.v===3))p=blank();p=migrate(p);
- if(playing)pause();ovShow("読み込み中…");for(const mid in p.media)if(!M[mid]){const b=await DB.get("media",mid);if(b)await loadMedia(mid,b,p.media[mid])}
+ if(Date.now()-lastBk>150000&&(P.items.length||P.fx.length||P.audio.length)){lastBk=Date.now();try{let bk=[];try{bk=JSON.parse(await DB.get("kv","bk:"+curId)||"[]")}catch(e){}bk.unshift({t:Date.now(),s:js});bk=bk.slice(0,4);await DB.put("kv","bk:"+curId,JSON.stringify(bk))}catch(e){}}const e=projects.find(p=>p.id===curId);if(e){e.updated=Date.now();if(P.name)e.name=P.name}await DB.put("kv","projects",JSON.stringify(projects));cloudSaveSoon()}
+async function loadProject(id){await projPull(id);const s=await DB.get("kv","p:"+id);let p=null;try{p=s?JSON.parse(s):null}catch(e){}if(!p||!(p.v===2||p.v===3))p=blank();p=migrate(p);
+ if(playing)pause();ovShow("読み込み中…");for(const mid in p.media)if(!M[mid]){const b=await DB.get("media",mid)||await cloudMedia(mid);if(b)await loadMedia(mid,b,p.media[mid])}
  const okI=i=>i.type==="text"||i.type==="shape"||M[i.mid];const lost=[...(p._lost||[]),...p.items.filter(i=>!okI(i))];p.items=[...p.items.filter(okI),...lost.filter(okI)];p._lost=lost.filter(i=>!okI(i));p.audio=p.audio.filter(a=>M[a.mid]);for(const i of p.items)if(i.type==="text"){loadFont(i.font);if(i.ust)usFonts()}
  P=p;curId=id;await DB.put("kv","cur",id);undoS.length=0;redoS.length=0;updUndo();sel=null;tool=null;T=0;pruneEls();setBodyPanel();resizeCanvas();ovHide();renderNav();refresh(true);syncMedia()}
 async function newProjectEntry(){await saveNow();const id=uid(),p=blank();p.name="プロジェクト "+(projects.length+1);projects.unshift({id,name:p.name,updated:Date.now()});
@@ -1079,6 +1079,10 @@ function pairStates(type,p,W,H){
   case "zoomin":A.sc=1+2.2*EASE.in(clamp(p/.6));A.zb=b;A.alpha=1-clamp((p-.35)/.3);B.sc=1+.8*(1-EASE.out(p));B.zb=b;aTop=true;break;
   case "zoomout":A.sc=1-.5*EASE.out(p);A.alpha=1-clamp((p-.3)/.4);A.zb=b;B.sc=1+1.2*(1-EASE.out(p));B.zb=b;aTop=true;break;
   case "xfade":B.alpha=p;break;
+  case "rise_up":case "rise_down":case "rise_left":case "rise_right":{/* 小さい状態で端から真ん中まで来て、そこから全面に拡大 */
+   const s0=.38,q1=clamp(p/.55),q2=clamp((p-.6)/.4),m1=1-Math.pow(1-q1,3),dx0=type==="rise_left"?-1:type==="rise_right"?1:0,dy0=type==="rise_up"?1:type==="rise_down"?-1:0,far=.5+s0/2+.04;
+   B.sc=s0+(1-s0)*EASE.inout(q2);B.dx=dx0*W*far*(1-m1);B.dy=dy0*H*far*(1-m1);const mv=Math.sin(Math.PI*Math.min(1,q1*1.15))*(1-q1);B.mb=mv*1.4;B.mx=-dx0;B.my=-dy0;B.zb=Math.sin(Math.PI*q2)*.8;
+   A.sc=1+.06*EASE.inout(q2);break}
   case "spinswap":A.rot=Math.PI*.5*EASE.in(p);A.sc=1+.4*p;A.alpha=1-clamp((p-.35)/.3);A.zb=b;B.rot=-Math.PI*.5*(1-EASE.out(p));B.sc=1+.4*(1-p);B.zb=b;aTop=true;break;}
  return {A,B,aTop}}
 function prevOf(it){return P.items.find(o=>o!==it&&o.track===it.track&&o.type!=="text"&&Math.abs(o.start+o.dur-it.start)<.05)}
@@ -1419,7 +1423,7 @@ window.addEventListener("pointermove",e=>{if(!od)return;if(!od.started){if(Math.
  const created=setProp(it,patch);markFast();needDraw=true;if(created){buildTL();updKfBtn()}updMoveVals()});
 window.addEventListener("pointerup",()=>{if(!od)return;const was=od.started;od=null;ovl._k="";if(was){save();buildTL();updKfBtn();if(tool)renderPanel()}needDraw=true});
 window.addEventListener("resize",()=>{ovl._k="";needDraw=true});
-const APPV="v43";
+const APPV="v45";
 async function forceUpdate(){ovShow("最新版を読み込んでいます…");try{await saveNow()}catch(e){}try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.update().catch(()=>{})))}catch(e){}location.replace(location.pathname+"?v="+Date.now())}
 setTimeout(()=>{try{const lv=localStorage.getItem("aura_v");if(lv!==APPV){localStorage.setItem("aura_v",APPV);if(lv)toast("AURA "+APPV+" に更新されました")}}catch(e){}},1500);
 let fastUntil=0,fastPend=false;const fastC=document.createElement("canvas"),fastX=fastC.getContext("2d");let PICK=null;document.addEventListener("pointerdown",e=>{if(!PICK)return;const r=cv.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;e.preventDefault();e.stopImmediatePropagation();const f=PICK;PICK=null;f(clamp((e.clientX-r.left)/r.width),clamp((e.clientY-r.top)/r.height))},true);
@@ -1816,8 +1820,8 @@ function hitFold(it,play){const tr=it.tin,hasC=P.fx.some(f=>f.cmb===it.id&&!f.hi
 let transTab="pair";
 /* ================= 切り替えのカテゴリとプレビュー ================= */
 const TCAT=[
- ["おすすめ",["ref2_side","gather_lr","wipe_cut","shape_circle","jikuu","glitch","zoomin","fade_white","ref_lid","wipe_line","tri_down","suck"]],
- ["寄って拡大",["ref2_side","gather_ud","gather_lr","gather_4","gather_lrv","gather_udv","ref2_cardc","ref2_diamond","ref2_blocks","ref2_white","ref_cardl","ref_cardpop","card"]],
+ ["おすすめ",["rise_up","ref2_side","gather_lr","wipe_cut","shape_circle","jikuu","glitch","zoomin","fade_white","ref_lid","wipe_line","tri_down","suck"]],
+ ["寄って拡大",["rise_up","rise_down","rise_left","rise_right","ref2_side","gather_ud","gather_lr","gather_4","gather_lrv","gather_udv","ref2_cardc","ref2_diamond","ref2_blocks","ref2_white","ref_cardl","ref_cardpop","card"]],
  ["図形で広がる",["shape_circle","shape_diamond","shape_square","shape_star","shape_heart","shape_hex","shape_tri","shape_cross","circle","open_circle","open_dia","ref_circlehold","ref2_lens","ref2_glass","shape_dots","shape_grid","shape_dgrid"]],
  ["すき間から開く",["open_slit","open_slith","open_slitd","open_fan","open_jag","ref_lid","ref_rise","fade_bandh","fade_bandv"]],
  ["切る・割れる",["wipe_cut","wipe_slash","wipe_split2","wipe_splith","wipe_quad","wipe_chev","wipe_wedge","ref_xsplit","ref_half","ref_fan12","shard","wipe_pizza","wipe_pizza6","wipe_pizza8"]],
@@ -1831,13 +1835,13 @@ const TCAT=[
 (()=>{const all=new Set(TCAT.flatMap(c=>c[1]));const left=PAIR.map(p=>p[0]).filter(k=>!all.has(k));if(left.length)TCAT.push(["その他",left]);for(const c of TCAT)c[1]=c[1].filter(k=>PL[k])})();
 /* 分かりやすい名前（プレビューの下の白いバーに出す） */
 const TNAME={ref2_side:"両端から寄って→拡大",gather_ud:"上下から寄って拡大",gather_lr:"左右から寄って拡大",gather_4:"4すみから寄って拡大",gather_lrv:"縦割りで左右から寄る",gather_udv:"縦割りで上下から寄る",
- ref2_cardc:"斜めカード→その場で拡大",ref2_diamond:"ひし形カード→拡大",ref2_blocks:"ブロックが集まって拡大",ref2_white:"白いカード→中身が出る",ref_cardl:"左から斜めカード→拡大",ref_cardpop:"真ん中のカード→拡大",card:"カードが飛んできて拡大",
+ ref2_cardc:"斜めカード→その場で拡大",ref2_diamond:"ひし形カード→拡大",ref2_blocks:"ブロックが集まって拡大",ref2_white:"白いカード→中身が出る",ref_cardl:"左から斜めカード→拡大",ref_cardpop:"真ん中のカード→拡大",card:"カードが飛んできて拡大",rise_up:"小さく下から来て→真ん中で拡大",rise_down:"小さく上から来て→真ん中で拡大",rise_left:"小さく左から来て→真ん中で拡大",rise_right:"小さく右から来て→真ん中で拡大",
  ref_lid:"上下から閉じて開く（まぶた）",ref_rise:"下から帯が伸びて開く",ref_circlehold:"丸く出て止まる→ドン",ref_lumapop:"明るい所から飛び出す",ref_fan12:"放射状に一瞬で割れる",ref_xsplit:"X字に割れる",ref_half:"半分ずつ切り替え",
  ref2_mirror:"鏡みたいに縦スクロール",ref2_panels:"白い板で半分ずつ",ref2_barcode:"バーコード状に開く",ref2_slicev:"縦スライスで切り替え",ref2_lens:"レンズの中から出てくる",ref2_glass:"ガラスの丸から出てくる",
  jikuu:"時空がゆがんで切り替え",xfade:"ふつうのクロスフェード",vshake:"激しく揺れて縦に伸びる"};
 const tName=k=>TNAME[k]||PL[k]||k;
 let TPV={},TPVq=[],TPVbusy=false,TPVimg=null;const TPV_N=18,TPV_W=72,TPV_H=128;
-function tpvDur(v){return v.startsWith("tri_")?1.5:v.startsWith("gather_")?.8:v==="wipe_cut"?.7:v==="ref2_panels"?.9:v==="ref2_blocks"?.8:["glitchsuck","splitsuck"].includes(v)?.7:.6}
+function tpvDur(v){return v.startsWith("tri_")?1.5:v.startsWith("rise_")?1:v.startsWith("gather_")?.8:v==="wipe_cut"?.7:v==="ref2_panels"?.9:v==="ref2_blocks"?.8:["glitchsuck","splitsuck"].includes(v)?.7:.6}
 async function tpvImages(){if(TPVimg)return TPVimg;const mk=(c1,c2,ch,fig)=>{const c=document.createElement("canvas");c.width=270;c.height=480;const x=c.getContext("2d");const g=x.createLinearGradient(0,0,270,480);g.addColorStop(0,c1);g.addColorStop(1,c2);x.fillStyle=g;x.fillRect(0,0,270,480);
   x.fillStyle="rgba(255,255,255,.18)";for(let i=0;i<6;i++){x.beginPath();x.arc(40+i*45,80+(i%2)*40,18+i*3,0,7);x.fill()}x.fillStyle=fig;x.beginPath();x.arc(135,250,46,0,7);x.fill();x.fillRect(80,300,110,150);
   x.fillStyle="#fff";x.font="900 120px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(ch,135,110);x.strokeStyle="rgba(0,0,0,.35)";x.lineWidth=6;x.strokeRect(3,3,264,474);return new Promise(r=>c.toBlob(r,"image/png"))};
@@ -1866,7 +1870,7 @@ function pTrans(pn,it){if(!it)return;const tr=it.tin;
   if(v.startsWith("gather_")&&!was.startsWith("gather_")){o.blur=ST.gblur??.6;o.size=o.size??.45;if(o.dur<.6)o.dur=.8}
   if(v.startsWith("shape_")&&o.dur<.45)o.dur=.55;if(v.startsWith("wipe_")&&o.dur<.35)o.dur=.45;if(v==="wipe_cut"&&o.dur<.6)o.dur=.7;if(v.startsWith("fade_")&&o.dur<.4)o.dur=.6;if(v.startsWith("open_")&&o.dur<.4)o.dur=.6;if(v.startsWith("ref2_")&&o.dur<.45)o.dur=v==="ref2_panels"?.9:v==="ref2_blocks"?.8:.6;if(v.startsWith("ref_")&&o.dur<.45)o.dur=v==="ref_lid"?.6:v==="ref_circlehold"?.6:.5;
   if((v.startsWith("shape_")||v.startsWith("wipe_")||v.startsWith("fade_"))&&!was.startsWith(v.split("_")[0]+"_"))o.blur=undefined;
-  if(key==="tin"&&v!=="none")addSE("trans",it.start-.12);if(PAIRSET.has(v)&&o.dur<.2)o.dur=.4;if(v==="glitchsuck"&&o.dur<.6)o.dur=.7;if(v==="jikuu"&&o.dur<.5)o.dur=.6;if(v==="splitsuck"&&o.dur<.6)o.dur=.7;
+  if(key==="tin"&&v!=="none")addSE("trans",it.start-.12);if(PAIRSET.has(v)&&o.dur<.2)o.dur=.4;if(v==="glitchsuck"&&o.dur<.6)o.dur=.7;if(v==="jikuu"&&o.dur<.5)o.dur=.6;if(v==="splitsuck"&&o.dur<.6)o.dur=.7;if(v.startsWith("rise_")&&!was.startsWith("rise_")&&o.dur<.9)o.dur=1;
   if(v.startsWith("tri_")&&o.dur<1.2){o.dur=1.5;o.blur=0;if(it.dur<1.8&&it.type!=="video")it.dur=1.8}
   if(key==="tin"&&o.hit&&o.hit!=="none"){if(PAIRSET.has(v))setHit(it,o.hit);else setHit(it,"none")}
   changed(true);renderPanel();if(key==="tin"&&v!=="none")playRange(it.start-.5,it.start+o.dur+.4);else if(key==="tout"&&v!=="none")playRange(it.start+it.dur-o.dur-.4,it.start+it.dur+.3)};
@@ -2310,9 +2314,62 @@ let SB=null,USER=null,ROLE="guest";
 let LIB=[],libCat="se",srvAssets=null;
 const LIBCAT=[["wm","アニメ素材"],["se","効果音"],["music","音楽"],["overlay","オーバーレイ"],["bg","背景"],["other","その他"],["shared","みんなの素材"]];
 async function libLoad(){try{LIB=JSON.parse(await DB.get("kv","library")||"[]")}catch(e){LIB=[]}let ch=false;for(const e of LIB)if(e.type==="video"&&(e.cat==="se"||e.cat==="music")){e.type="audio";ch=true}if(ch)libSave()}
+/* ================= クラウド（Cloudflare R2）：素材とプロジェクトを、誰が開いても見える場所に置く ================= */
+const CLOUD={on:false,have:new Set(),proj:{},busy:false,q:Promise.resolve(),st:"",err:0};
+const ckey=mid=>String(mid).startsWith("lib_")?"lib/"+mid:"media/"+mid;
+async function cFetch(path,o){const r=await fetch("/api/"+path,{cache:"no-store",...(o||{})});if(!r.ok)throw new Error(r.status+"");return r}
+async function cList(prefix){return (await cFetch("list?prefix="+encodeURIComponent(prefix))).json()}
+async function cPut(key,body,meta,type){if(body&&body.size>95*1024*1024){toast("ファイルが大きすぎてネットに保存できません（95MBまで）");throw new Error("big")}
+ await cFetch("o/"+key,{method:"PUT",body,headers:{"content-type":type||(body&&body.type)||"application/octet-stream","x-meta":encodeURIComponent(JSON.stringify(meta||{}))}});CLOUD.have.add(key)}
+async function cGet(key){return (await cFetch("o/"+key)).blob()}
+async function cDel(key){try{await cFetch("o/"+key,{method:"DELETE"});CLOUD.have.delete(key)}catch(e){}}
+function cRun(fn){CLOUD.q=CLOUD.q.then(fn).catch(e=>{CLOUD.err++});return CLOUD.q}
+function cState(s){CLOUD.st=s;const b=$("#cloudSt");if(b)b.textContent=s}
+async function cloudInit(){if(!/^https?:/.test(location.protocol))return;try{const r=await fetch("/api/ping",{cache:"no-store"});CLOUD.on=r.ok&&(await r.json()).ok}catch(e){CLOUD.on=false}
+ if(!CLOUD.on)return;cState("ネットと同期中…");try{await cloudSync(true)}catch(e){}cState("ネットに保存済み");
+ document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")cloudSync(false).catch(()=>{})})}
+/* 素材とプロジェクトの一覧をネットと合わせる */
+async function cloudSync(first){if(!CLOUD.on||CLOUD.busy)return;CLOUD.busy=true;
+ try{const [libs,meds,prs]=await Promise.all([cList("lib/"),cList("media/"),cList("proj/")]);CLOUD.have=new Set([...libs,...meds].map(o=>o.key));
+  /* 素材：ネットにあって手元にないもの→追加、ネットで消されたもの→手元からも消す、手元だけのもの→アップロード */
+  const remote=new Map(libs.map(o=>[o.key.slice(4),o]));let ch=false;
+  for(const e of [...LIB]){if(remote.has(e.id)){const m=remote.get(e.id).meta;if(m.name&&m.name!==e.name){e.name=m.name;ch=true}if(!e.cloud){e.cloud=1;ch=true}}else if(e.cloud){LIB=LIB.filter(x=>x!==e);ch=true}}
+  for(const [id,o] of remote)if(!LIB.find(e=>e.id===id)){const m=o.meta||{};LIB.push({id,name:m.name||id,cat:m.cat||"other",type:m.type||(o.type.split("/")[0]==="image"?"image":o.type.split("/")[0]==="audio"?"audio":"video"),at:+m.at||Date.parse(o.up)||0,cloud:1});ch=true}
+  LIB.sort((a,b)=>(b.at||0)-(a.at||0));if(ch)libSave();
+  for(const e of LIB.filter(e=>!e.cloud))cRun(()=>libUpload(e));
+  /* プロジェクト */
+  CLOUD.proj={};for(const o of prs){const id=o.key.slice(5).replace(/\.json$/,"");CLOUD.proj[id]={name:o.meta.name||"プロジェクト",updated:+o.meta.updated||0}}
+  let pch=false;
+  for(const p of [...projects]){const r=CLOUD.proj[p.id];if(r){if(r.updated>(p.updated||0)+1500){p.remoteNewer=r.updated;p.name=r.name;pch=true}}else if(p.cloud){projects=projects.filter(x=>x!==p);pch=true}}
+  for(const id in CLOUD.proj)if(!projects.find(p=>p.id===id)){projects.push({id,name:CLOUD.proj[id].name,updated:CLOUD.proj[id].updated,cloud:1,remoteNewer:CLOUD.proj[id].updated});pch=true}
+  projects.sort((a,b)=>(b.updated||0)-(a.updated||0));if(pch)await DB.put("kv","projects",JSON.stringify(projects));
+  for(const p of projects)if(!p.cloud&&!CLOUD.proj[p.id])cRun(async()=>{if(await projHasContent(p.id))await projUpload(p.id)});
+  /* 新しい端末で空のプロジェクトしかない時は、ネットにある最新の作品を開く */
+  if(first){const c0=projects.find(p=>p.id===curId);if(c0&&!c0.cloud&&!CLOUD.proj[c0.id]&&Object.keys(CLOUD.proj).length&&!(await projHasContent(c0.id))){projects=projects.filter(p=>p!==c0);await DB.del("kv","p:"+c0.id);await DB.put("kv","projects",JSON.stringify(projects));curId=null;await loadProject(projects[0].id);if(tool==="proj"||tool==="lib")renderPanel();return}}
+  /* 今開いてるプロジェクトが他の端末で新しくなってたら読み直す */
+  const cur=projects.find(p=>p.id===curId);if(cur&&cur.remoteNewer&&!first){toast("ほかの端末で更新されたので読み直しました");await loadProject(curId)}
+  else if(cur&&cur.remoteNewer&&first){await loadProject(curId)}
+  if(!projects.find(p=>p.id===curId)&&projects.length)await loadProject(projects[0].id);
+  if(tool==="proj"||tool==="lib"||tool==="audio")renderPanel()}
+ finally{CLOUD.busy=false}}
+async function libUpload(e){const b=await DB.get("media",e.id)||(e.cloud?await cloudMedia(e.id):null);if(!b)return;await cPut("lib/"+e.id,b,{name:e.name,cat:e.cat,type:e.type,at:e.at||Date.now()});e.cloud=1;libSave()}
+/* プロジェクトを保存（中身のJSON＋まだネットにない素材） */
+async function projUpload(id){let js=id===curId?JSON.stringify(P):await DB.get("kv","p:"+id);if(!js)return;const q=JSON.parse(js),e=projects.find(p=>p.id===id);
+ for(const mid in q.media||{}){const k=ckey(mid);if(CLOUD.have.has(k))continue;const b=await DB.get("media",mid);if(!b)continue;
+  if(k.startsWith("lib/")){const le=LIB.find(x=>x.id===mid);if(le){await libUpload(le);continue}}await cPut(k,b,{name:(q.media[mid]||{}).name||""})}
+ const up=(e&&e.updated)||Date.now();await cPut("proj/"+id+".json",new Blob([js],{type:"application/json"}),{name:(e&&e.name)||q.name||"プロジェクト",updated:up},"application/json");if(e){e.cloud=1;delete e.remoteNewer}CLOUD.proj[id]={name:(e&&e.name)||q.name,updated:up}}
+let cSaveT=0;function cloudSaveSoon(){if(!CLOUD.on||!curId)return;clearTimeout(cSaveT);const id=curId;cSaveT=setTimeout(()=>{cState("ネットに保存中…");cRun(()=>projUpload(id)).then(()=>cState(CLOUD.err?"ネット保存に失敗（あとで再試行）":"ネットに保存済み"))},2500)}
+/* ネットからプロジェクトを持ってくる（素材も） */
+async function projPull(id){if(!CLOUD.on)return;const e=projects.find(p=>p.id===id);if(!e||!(e.remoteNewer||e.cloud&&!(await DB.get("kv","p:"+id))))return;
+ ovShow("ネットから読み込み中…");try{const js=await (await cGet("proj/"+id+".json")).text();const q=JSON.parse(js);
+  const mids=Object.keys(q.media||{});let i=0;for(const mid of mids){i++;if(await DB.get("media",mid))continue;ovShow(`素材をダウンロード中… ${i}/${mids.length}`);try{const b=await cGet(ckey(mid));await DB.put("media",mid,b)}catch(x){}}
+  await DB.put("kv","p:"+id,js);e.updated=e.remoteNewer||e.updated;delete e.remoteNewer;e.cloud=1;await DB.put("kv","projects",JSON.stringify(projects))}catch(x){toast("ネットから読み込めませんでした")}ovHide()}
+async function cloudMedia(id){if(!CLOUD.on)return null;try{const b=await cGet(ckey(id));await DB.put("media",id,b);return b}catch(e){return null}}
+async function projHasContent(id){let js=id===curId?JSON.stringify(P):await DB.get("kv","p:"+id);try{const q=JSON.parse(js);return !!((q.items||[]).length||(q.audio||[]).length||(q.fx||[]).length)}catch(e){return false}}
+
 function libSave(){DB.put("kv","library",JSON.stringify(LIB))}
-async function libAddBlob(blob,name,cat,type){if(type==="video"&&(cat==="se"||cat==="music"))type="audio";const id="lib_"+uid();await DB.put("media",id,blob);LIB.unshift({id,name,cat,type,at:Date.now()});libSave();return id}
-async function ensureMedia(id,meta){if(M[id])return M[id];const b=await DB.get("media",id);if(!b)return null;return loadMedia(id,b,meta)}
+async function libAddBlob(blob,name,cat,type){if(type==="video"&&(cat==="se"||cat==="music"))type="audio";const id="lib_"+uid();await DB.put("media",id,blob);const en={id,name,cat,type,at:Date.now()};LIB.unshift(en);libSave();if(CLOUD.on)cRun(()=>libUpload(en));return id}
+async function ensureMedia(id,meta){if(M[id])return M[id];const b=await DB.get("media",id)||await cloudMedia(id);if(!b)return null;return loadMedia(id,b,meta)}
 async function libInsert(e){ovShow("読み込み中…");const meta={type:e.type,name:e.name};const m=await ensureMedia(e.id,meta);ovHide();if(!m)return toast("読み込めませんでした");snap();P.media[e.id]=meta;
  if(e.type==="audio")P.audio.push({id:uid(),mid:e.id,start:T,dur:Math.max(.1,Math.min(m.dur,e.cat==="se"?m.dur:Math.max(1,duration()-T))),trimIn:0,vol:1,fin:0,fout:0});
  else{const it=newItem(e.id,e.type,T,e.type==="video"?Math.max(.1,m.dur):2,P.items.length?maxTrack()+1:0);if(e.cat==="overlay")it.blend="screen";P.items.push(it)}
@@ -2340,12 +2397,12 @@ async function synthSE(kind){const sr=44100,d={whoosh:.8,swish:.35,impact:1.2,bo
  return wavBlob(await oc.startRendering())}
 async function makeBuiltinSE(){ovShow("効果音を作っています…");const names={whoosh:"シュッ（ウーッシュ）",swish:"ヒュン",impact:"ドン",boom:"ドゴォン（重い）",riser:"ライザー（だんだん上がる）",glitch:"グリッチ音",click:"カチッ",rev:"逆再生シンバル"};
  for(const k in names){if(LIB.some(e=>e.builtin===k))continue;try{const b=await synthSE(k);const id=await libAddBlob(b,names[k],"se","audio");LIB.find(e=>e.id===id).builtin=k}catch(e){}}libSave();ovHide();renderPanel();toast("内蔵の効果音を作りました")}
-let pvAudio=null;async function previewAudio(id){const b=await DB.get("media",id);if(!b)return;if(pvAudio)pvAudio.pause();pvAudio=new Audio(URL.createObjectURL(b));pvAudio.play().catch(()=>{})}
-async function libDel(e){if(!confirm(`「${e.name}」を素材から消しますか？`))return;LIB=LIB.filter(x=>x!==e);libSave();for(const k in ST.se)if(ST.se[k]===e.id)delete ST.se[k];saveST();await gcMedia();renderPanel()}
+let pvAudio=null;async function previewAudio(id){const b=await DB.get("media",id)||await cloudMedia(id);if(!b)return;if(pvAudio)pvAudio.pause();pvAudio=new Audio(URL.createObjectURL(b));pvAudio.play().catch(()=>{})}
+async function libDel(e){if(!confirm(`「${e.name}」を素材から消しますか？${CLOUD.on?"\n（ネットからも消えて、ほかの人の素材一覧からも消えます）":""}`))return;LIB=LIB.filter(x=>x!==e);if(CLOUD.on)cDel("lib/"+e.id);libSave();for(const k in ST.se)if(ST.se[k]===e.id)delete ST.se[k];saveST();await gcMedia();renderPanel()}
 function libRow(e,add,del){const ic=e.type==="audio"?"♪":e.type==="video"?"▶":"▣";
  return h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:7px 0"},h("span",{style:"width:24px;text-align:center;color:var(--acc2)"},ic),h("span",{style:"flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px"},e.name),
   e.type==="audio"&&!String(e.id).startsWith("srv_")?h("button",{class:"btn",style:"padding:6px 10px",onclick:()=>previewAudio(e.id)},"▶"):null,
-  del?h("button",{class:"btn",style:"padding:6px 10px",onclick:()=>{const n=prompt("素材の名前",e.name);if(!n||!n.trim())return;e.name=n.trim();libSave();if(M[e.id])M[e.id].name=e.name;if(P.media[e.id]){P.media[e.id].name=e.name;changed(true)}renderPanel()}},"✎"):null,h("button",{class:"btn pri",style:"padding:6px 12px",onclick:add},"追加"),del?h("button",{class:"btn dng",style:"padding:6px 10px",onclick:del},"×"):null)}
+  del?h("button",{class:"btn",style:"padding:6px 10px",onclick:()=>{const n=prompt("素材の名前",e.name);if(!n||!n.trim())return;e.name=n.trim();libSave();if(CLOUD.on)cRun(()=>libUpload(e));if(M[e.id])M[e.id].name=e.name;if(P.media[e.id]){P.media[e.id].name=e.name;changed(true)}renderPanel()}},"✎"):null,h("button",{class:"btn pri",style:"padding:6px 12px",onclick:add},"追加"),del?h("button",{class:"btn dng",style:"padding:6px 10px",onclick:del},"×"):null)}
 async function loadShared(){try{const {data}=await SB.from("assets").select("*").order("created_at",{ascending:false});srvAssets=data||[]}catch(e){srvAssets=[]}renderPanel()}
 async function fetchShared(a){const id="srv_"+a.id;let e=LIB.find(x=>x.id===id);if(!e){ovShow("ダウンロード中…");try{const r=await fetch(a.url);const b=await r.blob();await DB.put("media",id,b);e={id,name:a.name,cat:"shared",type:a.type,at:Date.now()};LIB.unshift(e);libSave()}catch(x){ovHide();return toast("ダウンロードできませんでした")}ovHide()}libInsert(e)}
 function pLib(pn){pn.append(chips(LIBCAT,libCat,v=>{libCat=v;renderPanel()}));
@@ -2569,10 +2626,10 @@ function splitCore(it){const c=JSON.parse(JSON.stringify(it));c.id=uid();const c
  it.dur=cut;it.tout={type:"none",dur:.3};P.items.push(c);return c}
 function splitAt(it){if(!(T>it.start+.05&&T<it.start+it.dur-.05)){toast("再生位置をクリップの上に合わせてね");return}snap();const c=splitCore(it);refresh(false);select("item",c.id)}
 function splitAudio(a){if(!(T>a.start+.05&&T<a.start+a.dur-.05)){toast("再生位置を音の上に合わせてね");return}snap();const c={...a,id:uid()},cut=T-a.start;c.start=T;c.dur=a.dur-cut;c.trimIn=a.trimIn+cut;a.dur=cut;P.audio.push(c);refresh(false);select("au",c.id)}
-function pProj(pn){pn.append(h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>newProjectEntry()},"＋ 新しいプロジェクト"),h("button",{class:"btn",onclick:showBackups},"自動保存から戻す")),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>exportBackup()},"書き出す・送る"),h("button",{class:"btn",onclick:()=>$("#fBk").click()},"読み込む")),h("p",{class:"note",style:"margin-top:0"},"「書き出す・送る」→「今のプロジェクトだけ」でPCに送って、PCのAURAに .aura をドロップすれば続きができます。"));
+function pProj(pn){pn.append(h("div",{class:"note",style:"margin:4px 0 8px;display:flex;align-items:center;gap:8px"},h("span",null,CLOUD.on?"☁":"📱"),h("span",{id:"cloudSt"},CLOUD.on?(CLOUD.st||"ネットに保存済み"):"ネット保存：つながっていません（この端末だけに保存）"),CLOUD.on?h("button",{class:"btn",style:"padding:4px 10px;margin-left:auto",onclick:()=>{cState("ネットと同期中…");cloudSync(false).then(()=>cState("ネットに保存済み")).catch(()=>cState("同期に失敗しました"))}},"今すぐ同期"):null),h("div",{class:"btns"},h("button",{class:"btn pri",onclick:()=>newProjectEntry()},"＋ 新しいプロジェクト"),h("button",{class:"btn",onclick:showBackups},"自動保存から戻す")),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>exportBackup()},"書き出す・送る"),h("button",{class:"btn",onclick:()=>$("#fBk").click()},"読み込む")),h("p",{class:"note",style:"margin-top:0"},"「書き出す・送る」→「今のプロジェクトだけ」でPCに送って、PCのAURAに .aura をドロップすれば続きができます。"));
  for(const p of projects){const cur=p.id===curId,d=new Date(p.updated||Date.now());
   pn.append(h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0"},
-   h("div",{style:"flex:1;min-width:0"},h("div",{style:`font-weight:${cur?700:400};color:${cur?"var(--acc2)":"inherit"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`},(cur?"● ":"")+p.name),h("div",{class:"note",style:"margin:2px 0 0"},`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`)),
+   h("div",{style:"flex:1;min-width:0"},h("div",{style:`font-weight:${cur?700:400};color:${cur?"var(--acc2)":"inherit"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`},(cur?"● ":"")+(p.remoteNewer?"☁ ":"")+p.name),h("div",{class:"note",style:"margin:2px 0 0"},`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`)),
    cur?null:h("button",{class:"btn",onclick:async()=>{await saveNow();await loadProject(p.id)}},"開く"),
    h("button",{class:"btn",onclick:()=>renameProj(p)},"名前"),h("button",{class:"btn",onclick:()=>dupProj(p)},"複製"),h("button",{class:"btn dng",onclick:()=>delProj(p)},"削除")))}}
 async function showBackups(){const pn=$("#panel");let rows=[];try{for(const k of (await DB.keys("kv")).map(String).filter(k=>k.startsWith("bk:"))){const id=k.slice(3),pj=projects.find(q=>q.id===id);for(const b of JSON.parse(await DB.get("kv",k)||"[]"))rows.push({id,name:pj?pj.name:"消えたプロジェクト",b})}}catch(e){}
@@ -2581,9 +2638,9 @@ async function showBackups(){const pn=$("#panel");let rows=[];try{for(const k of
  for(const r of rows){const d=new Date(r.b.t);let n=0;try{const q=JSON.parse(r.b.s);n=q.items.length}catch(e){}
   pn.append(h("div",{style:"display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0"},h("div",{style:"flex:1;min-width:0"},h("div",{style:"white-space:nowrap;overflow:hidden;text-overflow:ellipsis"},r.name),h("div",{class:"note",style:"margin:2px 0 0"},`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}・クリップ${n}個`)),
    h("button",{class:"btn pri",onclick:async()=>{await saveNow();const id=uid(),q=JSON.parse(r.b.s);q.name=(q.name||r.name)+"（控え）";await DB.put("kv","p:"+id,JSON.stringify(q));projects.unshift({id,name:q.name,updated:Date.now()});await DB.put("kv","projects",JSON.stringify(projects));await loadProject(id);toast("控えから戻しました")}},"戻す")))}}
-async function renameProj(p){const n=prompt("プロジェクトの名前",p.name);if(!n)return;p.name=n;if(p.id===curId)P.name=n;else{const s=await DB.get("kv","p:"+p.id);if(s){const q=JSON.parse(s);q.name=n;await DB.put("kv","p:"+p.id,JSON.stringify(q))}}await DB.put("kv","projects",JSON.stringify(projects));save();renderPanel()}
-async function dupProj(p){await saveNow();const s=await DB.get("kv","p:"+p.id),id=uid(),q=s?JSON.parse(s):blank();q.name=p.name+" のコピー";await DB.put("kv","p:"+id,JSON.stringify(q));projects.unshift({id,name:q.name,updated:Date.now()});await DB.put("kv","projects",JSON.stringify(projects));renderPanel();toast("複製しました")}
-async function delProj(p){if(!confirm(`「${p.name}」を消しますか？元に戻せません。`))return;const wasCur=p.id===curId;projects=projects.filter(x=>x!==p);await DB.del("kv","p:"+p.id);if(wasCur)curId=null;
+async function renameProj(p){const n=prompt("プロジェクトの名前",p.name);if(!n)return;p.name=n;if(p.id===curId)P.name=n;else{const s=await DB.get("kv","p:"+p.id);if(s){const q=JSON.parse(s);q.name=n;await DB.put("kv","p:"+p.id,JSON.stringify(q))}}await DB.put("kv","projects",JSON.stringify(projects));save();if(CLOUD.on&&p.id!==curId)cRun(()=>projUpload(p.id));renderPanel()}
+async function dupProj(p){await saveNow();const s=await DB.get("kv","p:"+p.id),id=uid(),q=s?JSON.parse(s):blank();q.name=p.name+" のコピー";await DB.put("kv","p:"+id,JSON.stringify(q));projects.unshift({id,name:q.name,updated:Date.now()});await DB.put("kv","projects",JSON.stringify(projects));if(CLOUD.on)cRun(()=>projUpload(id));renderPanel();toast("複製しました")}
+async function delProj(p){if(!confirm(`「${p.name}」を消しますか？元に戻せません。${CLOUD.on?"\n（ネットからも消えて、みんなの一覧からも消えます）":""}`))return;const wasCur=p.id===curId;projects=projects.filter(x=>x!==p);await DB.del("kv","p:"+p.id);if(CLOUD.on)cDel("proj/"+p.id+".json");if(wasCur)curId=null;
  await DB.put("kv","projects",JSON.stringify(projects));if(!projects.length)await newProjectEntry();else if(wasCur)await loadProject(projects[0].id);await gcMedia();tool="proj";setBodyPanel();renderPanel();toast("消しました")}
 $("#logo").onclick=()=>{if(sel)select(null);openTool("proj")};
 $("#ratioBtn").onclick=()=>{if(sel)select(null);openTool("ratio")};
@@ -2870,7 +2927,7 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="TEXTAREA"||e.targ
  if(!list||!list.length){const id=uid(),old=await DB.get("kv","project");let p=null;try{p=old?JSON.parse(old):null}catch(e){}if(!p)p=blank();p.name=p.name||"プロジェクト 1";
   await DB.put("kv","p:"+id,JSON.stringify(p));list=[{id,name:p.name,updated:Date.now()}];await DB.put("kv","projects",JSON.stringify(list));await DB.put("kv","cur",id)}
  projects=list;let cur=await DB.get("kv","cur");if(!projects.find(p=>p.id===cur))cur=projects[0].id;
- await loadProject(cur);requestAnimationFrame(frame);initAuth();
+ await loadProject(cur);requestAnimationFrame(frame);initAuth();cloudInit();
  if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{})})();
 </script>
 </body>
