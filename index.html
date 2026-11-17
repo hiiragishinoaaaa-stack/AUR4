@@ -1259,7 +1259,7 @@ async function readAoff(mid,blob){if(mid in AOFF)return AOFF[mid];let res=0;try{
    ctx=AudioContext/OfflineAudioContext, when=鳴らし始める時刻, lt=クリップの中の何秒目から */
 function vidSnd(o){return o.type==="video"&&(o.vol??1)>0&&!itemHidden(o)&&!o.rev&&avgSpeed(o)<=4&&avgSpeed(o)>=.25}
 function placeSnd(ctx,buf,o,isV,dest,when,lt){let rem=o.dur-lt;if(rem<=.01)return null;
- let off=isV?(o.trimIn||0)+srcAt(o,lt)-(AOFF[o.mid]||0):(o.trimIn||0)+lt;if(off<0){const r0=isV?speedAt(o,lt/o.dur):1,dl=-off/r0;if(dl>=rem-.01)return null;when+=dl;lt+=dl;rem-=dl;off=0}if(off>=buf.duration-.005)return null;
+ let off=isV?(o.trimIn||0)+srcAt(o,lt)-(o.aoff||0):(o.trimIn||0)+lt;if(off<0){const r0=isV?speedAt(o,lt/o.dur):1,dl=-off/r0;if(dl>=rem-.01)return null;when+=dl;lt+=dl;rem-=dl;off=0}if(off>=buf.duration-.005)return null;
  const src=ctx.createBufferSource();src.buffer=buf;const g=ctx.createGain();src.connect(g);g.connect(dest);
  const v=clamp(o.vol??1,0,isV?3:2);g.gain.setValueAtTime(v*fadeAt(o,lt),when);if(o.fin>0&&lt<o.fin)g.gain.linearRampToValueAtTime(v,when+(o.fin-lt));
  if(o.fout>0){const fs=Math.max(0,o.dur-o.fout-lt);g.gain.setValueAtTime(v*fadeAt(o,lt+fs),when+fs);g.gain.linearRampToValueAtTime(0,when+rem)}
@@ -1731,7 +1731,7 @@ window.addEventListener("pointermove",e=>{if(!od)return;if(!od.started){if(Math.
  const created=setProp(it,patch);markFast();needDraw=true;if(created){buildTL();updKfBtn()}updMoveVals()});
 window.addEventListener("pointerup",()=>{if(!od)return;const was=od.started;od=null;ovl._k="";if(was){save();buildTL();updKfBtn();if(tool)renderPanel()}needDraw=true});
 window.addEventListener("resize",()=>{ovl._k="";needDraw=true});
-const APPV="v57";
+const APPV="v58";
 async function forceUpdate(){ovShow("最新版を読み込んでいます…");try{await saveNow()}catch(e){}try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.update().catch(()=>{})))}catch(e){}location.replace(location.pathname+"?v="+Date.now())}
 setTimeout(()=>{try{const lv=localStorage.getItem("aura_v");if(lv!==APPV){localStorage.setItem("aura_v",APPV);if(lv)toast("AURA "+APPV+" に更新されました")}}catch(e){}},1500);
 let fastUntil=0,fastPend=false;const fastC=document.createElement("canvas"),fastX=fastC.getContext("2d");let PICK=null;document.addEventListener("pointerdown",e=>{if(!PICK)return;const r=cv.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;e.preventDefault();e.stopImmediatePropagation();const f=PICK;PICK=null;f(clamp((e.clientX-r.left)/r.width),clamp((e.clientY-r.top)/r.height))},true);
@@ -2267,7 +2267,7 @@ function pColor(pn,it){if(!it)return;const c=it.color,g=q=>val(it,clamp(localT(i
   slider("くっきり（シャープ）",0,1.5,.01,()=>it.sharp||0,v=>{it.sharp=v},pct),sec("プリセット"),chips(CPRE.map(([n])=>[n,n]),null,n=>{snap();const pr=CPRE.find(x=>x[0]===n)[1];Object.assign(c,{c:pr.c,s:pr.s,h:pr.h,sep:pr.sep,inv:pr.inv});setProp(it,{cb:pr.b,cbl:pr.bl});changed(true);renderPanel()}),
   sec("細かく（明るさ・ぼかしは◇で動かせます）"),slider("明るさ",0,2,.01,()=>g("cb"),v=>S("cb",v),pct),slider("コントラスト",0,3,.01,()=>c.c,v=>{c.c=v},pct),slider("鮮やかさ",0,3,.01,()=>c.s,v=>{c.s=v},pct),
   slider("色相",-180,180,1,()=>c.h,v=>{c.h=v},v=>v+"°"),slider("セピア",0,1,.01,()=>c.sep,v=>{c.sep=v},pct),slider("ぼかし",0,20,.1,()=>g("cbl"),v=>S("cbl",v),v=>v.toFixed(1)),slider("反転",0,1,.01,()=>c.inv,v=>{c.inv=v},pct))}
-function pVol(pn,it){if(!it)return;const md=(M[it.mid]||{}).dur||1;pn.append(slider("元の音量",0,3,.01,()=>it.vol??1,v=>{it.vol=v},pct),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>autoLoud(it)},"音の大きさを自動でそろえる")),h("p",{class:"note",style:"margin:0"},"100%より上げると大きくなります（上げすぎると音が割れることがあります）"),slider("使い始め",0,Math.max(0,md-.1),.01,()=>it.trimIn,v=>{it.trimIn=v;fitVideo(it);return true},sec1))}
+function pVol(pn,it){if(!it)return;const md=(M[it.mid]||{}).dur||1;pn.append(slider("元の音量",0,3,.01,()=>it.vol??1,v=>{it.vol=v},pct),slider("音と絵のずれ直し",-.5,.5,.005,()=>it.aoff||0,v=>{it.aoff=Math.abs(v)<.003?0:v},v=>v?(v>0?"音を遅らせる ":"音を早める ")+Math.round(Math.abs(v)*1000)+"ms":"なし"),h("div",{class:"btns"},h("button",{class:"btn",onclick:()=>autoLoud(it)},"音の大きさを自動でそろえる")),h("p",{class:"note",style:"margin:0"},"100%より上げると大きくなります（上げすぎると音が割れることがあります）"),slider("使い始め",0,Math.max(0,md-.1),.01,()=>it.trimIn,v=>{it.trimIn=v;fitVideo(it);return true},sec1))}
 function pText(pn,it){if(!it||it.type!=="text")return;const ta=h("textarea",{class:"txtin",rows:"2"});ta.value=it.text;ta.oninput=()=>{beginEdit();it.text=ta.value;changed(true)};
  const LG=it.logo&&it.logo.on;if(LG){pn.append(ta,slider("大きさ",.02,.5,.005,()=>it.size,v=>{it.size=v},pct));pLogo(pn,it)}
  pn.append(LG?sec("ふつうの文字の設定"):ta,LG?null:slider("大きさ",.02,.3,.005,()=>it.size,v=>{it.size=v},pct),h("div",{class:"btns"},colorIn("文字",it.fill,v=>it.fill=v),colorIn("縁",it.stroke,v=>it.stroke=v)),slider("縁取り",0,1,.05,()=>it.sw,v=>{it.sw=v},pct),
@@ -3525,9 +3525,9 @@ function loadScript(src){return new Promise((res,rej)=>{if(window.Mp4Muxer)retur
    同じコマの中なら動かさない（60fpsで書き出すと30fpsの動画は2回同じコマになるため） */
 function vfcWatch(e){if(e._vfc||!e.requestVideoFrameCallback)return;e._vfc=1;const cb=(n,m)=>{const mt=m.mediaTime;if(e._mt!=null){const d=Math.abs(mt-e._mt);if(d>.004&&d<.5)e._fd=e._fd?Math.min(e._fd,d):d}e._mt=mt;e._mtn=(e._mtn||0)+1;if(e._vw)e._vw();try{e.requestVideoFrameCallback(cb)}catch(x){}};try{e.requestVideoFrameCallback(cb)}catch(x){}}
 function seekTo(e,tg){tg=Math.max(0,Math.min(tg,(e.duration||1e9)-.002));vfcWatch(e);
- if(e.readyState>=2&&!e.seeking){if(Math.abs(e.currentTime-tg)<.0005)return Promise.resolve();if(e._mt!=null&&e._fd&&tg>=e._mt-.0005&&tg<e._mt+e._fd-.002&&Math.abs(e.currentTime-e._mt)<e._fd)return Promise.resolve()}
+ if(e.readyState>=2&&!e.seeking){if(Math.abs(e.currentTime-tg)<.0005)return Promise.resolve();}
  return new Promise(r=>{let done=false,sk=false;const n0=e._mtn||0;const fin=()=>{if(done)return;done=true;e.removeEventListener("seeked",onS);e._vw=null;r()};
-  const fresh=()=>(e._mtn||0)>n0&&e._mt!=null&&Math.abs(e._mt-tg)<Math.max(.06,(e._fd||.04)*1.5);
+  const fresh=()=>(e._mtn||0)>n0&&e._mt!=null&&e._mt<=tg+.002&&tg-e._mt<.1;
   const onS=()=>{sk=true;if(!e.requestVideoFrameCallback||fresh())fin();else setTimeout(fin,150)};
   e._vw=()=>{if(sk&&fresh())fin()};e.addEventListener("seeked",onS);e._pend=null;e.currentTime=tg+.0005;setTimeout(fin,3000)})}
 async function prepFrame(t){const need=[];for(const k in OVR)delete OVR[k];
