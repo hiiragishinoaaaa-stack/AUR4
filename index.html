@@ -1211,7 +1211,8 @@ function ensureAudio(){try{if(navigator.audioSession&&navigator.audioSession.typ
 function needDest(){ensureAudio();if(AC&&!DEST){try{DEST=AC.createMediaStreamDestination();busIn();if(AFX&&AFX.ctx===AC)AFX.out.connect(DEST)}catch(e){DEST=null}}}
 /* 長く閉じてた後は、保存してある素材のURLが使えなくなることがあるので作り直す */
 async function refreshUrls(ids){for(const id of ids||Object.keys(M)){const m=M[id];if(!m||m.type==="image")continue;try{const b=await DB.get("media",id);if(!b)continue;const old=m.url;m.url=URL.createObjectURL(b);setTimeout(()=>{try{URL.revokeObjectURL(old)}catch(e){}},5000)}catch(e){}}}
-function mediaNotReady(){for(const a of P.audio){if(audMuted(a)||!(T>=a.start-.5&&T<a.start+a.dur))continue;if(waOn()){if(!ABUF[a.mid]&&!AFAIL[a.mid]){getBuf(a.mid);return true}continue}if(!(T>=a.start))continue;const e=EL[a.id];if(!e||e.readyState<3||e.seeking||e._seekWant!=null)return true}
+function mediaNotReady(){if(waOn())for(const it of P.items)if(vidSnd(it)&&T>=it.start-.5&&T<it.start+it.dur&&!ABUF[it.mid]&&!AFAIL[it.mid]){getBuf(it.mid);return true}
+ for(const a of P.audio){if(audMuted(a)||!(T>=a.start-.5&&T<a.start+a.dur))continue;if(waOn()){if(!ABUF[a.mid]&&!AFAIL[a.mid]){getBuf(a.mid);return true}continue}if(!(T>=a.start))continue;const e=EL[a.id];if(!e||e.readyState<3||e.seeking||e._seekWant!=null)return true}
  for(const it of P.items){if(it.type!=="video"||itemHidden(it)||!(T>=it.start&&T<it.start+it.dur))continue;const e=EL[it.id];if(!e||e.readyState<2||e._seekWant!=null)return true}return false}
 function resetAudio(){if(AC){try{AC.close()}catch(e){}}AC=null;DEST=null;AFX=null;for(const k of Object.keys(EL))relEl(k)}
 function connectEl(e){if(!AC||e._src)return;try{e._src=AC.createMediaElementSource(e);e._g=AC.createGain();e._src.connect(e._g);e._g.connect(busIn()||AC.destination)}catch(x){}}
@@ -1231,7 +1232,7 @@ const USE_WA=true,ABUF={},ABP={},AFAIL={};let ACK=null;const waOn=()=>USE_WA&&!!
 function audMuted(a){return (P.amute||[]).includes(a.lane||0)}
 function getBuf(mid){if(ABUF[mid])return Promise.resolve(ABUF[mid]);if(ABP[mid])return ABP[mid];if(!AC)return Promise.resolve(null);
  ABP[mid]=(async()=>{try{const b=await DB.get("media",mid);if(!b)return null;const buf=await new Promise((res,rej)=>{b.arrayBuffer().then(ab=>{const pr=AC.decodeAudioData(ab,res,rej);if(pr&&pr.catch)pr.catch(rej)},rej)});ABUF[mid]=buf;return buf}catch(e){AFAIL[mid]=1;return null}finally{delete ABP[mid]}})();return ABP[mid]}
-function warmAud(){if(!USE_WA||!AC)return;for(const a of P.audio)getBuf(a.mid);const used=new Set(P.audio.map(a=>a.mid));for(const k in ABUF)if(!used.has(k))delete ABUF[k]}
+function warmAud(){if(!USE_WA||!AC)return;const L=sndList();for(const {o} of L)getBuf(o.mid);const used=new Set(L.map(x=>x.o.mid));for(const k in ABUF)if(!used.has(k))delete ABUF[k]}
 function stopAud(){audGen++;for(const s of AUD){try{s.stop()}catch(e){}}AUD=[];for(const q of AUDE){clearTimeout(q.tm);clearTimeout(q.st);if(q.e){try{q.e.pause()}catch(e){}}}AUDE=[]}
 /* WebAudioで読めない形式の音は、昔の方法（audio要素）で鳴らす */
 function elPlay(a,gen,T0,c0){const m=M[a.mid];if(!m||!m.url)return;const delay=Math.max(0,(c0+(a.start-T0))-AC.currentTime);
@@ -1239,14 +1240,28 @@ function elPlay(a,gen,T0,c0){const m=M[a.mid];if(!m||!m.url)return;const delay=M
   try{const sn=AC.createMediaElementSource(e);sn.connect(busIn()||AC.destination)}catch(x){}
   const go=()=>{try{e.currentTime=(a.trimIn||0)+lt}catch(x){}e.play().catch(()=>{});q.st=setTimeout(()=>{try{e.pause()}catch(x){}},(a.dur-lt)*1000)};if(e.readyState>=1)go();else e.addEventListener("loadedmetadata",go,{once:true})},delay*1000)};AUDE.push(q)}
 function fadeAt(a,lt){let f=1;if(a.fin>0)f=Math.min(f,lt/a.fin);if(a.fout>0)f=Math.min(f,(a.dur-lt)/a.fout);return clamp(f)}
-function schedAud(){stopAud();ACK=null;if(!USE_WA||!AC||!playing)return;const gen=audGen,T0=T,c0=AC.currentTime+.05;ACK={c0,T0,ctx:AC};
- for(const a of P.audio){if(a.start+a.dur<=T0||audMuted(a))continue;
-  const go=buf=>{if(gen!==audGen||!playing)return;if(!buf){if(AFAIL[a.mid])elPlay(a,gen,T0,c0);return}const when=Math.max(AC.currentTime+.01,c0+(a.start-T0)),tl=T0+(when-c0),lt=Math.max(0,tl-a.start),off=Math.max(0,(a.trimIn||0)+lt),rem=a.dur-lt;
-   if(rem<=.01||off>=buf.duration)return;const src=AC.createBufferSource();src.buffer=buf;const g=AC.createGain();src.connect(g);g.connect(busIn()||AC.destination);
-   const v=clamp(a.vol??1,0,2);g.gain.setValueAtTime(v*fadeAt(a,lt),when);if(a.fin>0&&lt<a.fin)g.gain.linearRampToValueAtTime(v,when+(a.fin-lt));
-   if(a.fout>0){const fs=Math.max(0,a.dur-a.fout-lt);g.gain.setValueAtTime(v*fadeAt(a,lt+fs),when+fs);g.gain.linearRampToValueAtTime(0,when+rem)}
-   src.start(when,off,Math.max(.01,Math.min(rem,buf.duration-off)));AUD.push(src)};
-  if(ABUF[a.mid])go(ABUF[a.mid]);else getBuf(a.mid).then(go)}}
+/* 1つの音（音楽・効果音・動画の音）を、タイムラインの位置ぴったりに置く。再生でも書き出しでも同じこれを使うので、ズレ方が同じになる
+   ctx=AudioContext/OfflineAudioContext, when=鳴らし始める時刻, lt=クリップの中の何秒目から */
+function vidSnd(o){return o.type==="video"&&(o.vol??1)>0&&!itemHidden(o)&&!o.rev&&avgSpeed(o)<=4&&avgSpeed(o)>=.25}
+function placeSnd(ctx,buf,o,isV,dest,when,lt){const rem=o.dur-lt;if(rem<=.01)return null;
+ const off=isV?(o.trimIn||0)+srcAt(o,lt):(o.trimIn||0)+lt;if(off>=buf.duration-.005)return null;
+ const src=ctx.createBufferSource();src.buffer=buf;const g=ctx.createGain();src.connect(g);g.connect(dest);
+ const v=clamp(o.vol??1,0,isV?3:2);g.gain.setValueAtTime(v*fadeAt(o,lt),when);if(o.fin>0&&lt<o.fin)g.gain.linearRampToValueAtTime(v,when+(o.fin-lt));
+ if(o.fout>0){const fs=Math.max(0,o.dur-o.fout-lt);g.gain.setValueAtTime(v*fadeAt(o,lt+fs),when+fs);g.gain.linearRampToValueAtTime(0,when+rem)}
+ if(isV){const sp=spd(o);if(sp.curve==="const")src.playbackRate.setValueAtTime(clamp(sp.base,.1,8),when);
+  else{const dt=1/50;src.playbackRate.setValueAtTime(speedAt(o,lt/o.dur),when);for(let k=dt;k<rem;k+=dt)src.playbackRate.linearRampToValueAtTime(speedAt(o,(lt+k)/o.dur),when+k);src.playbackRate.linearRampToValueAtTime(speedAt(o,1),when+rem)}}
+ src.start(when,off);src.stop(when+rem);return src}
+/* 再生で鳴らす音のリスト（音の素材＋音のある動画） */
+function sndList(){return [...P.audio.filter(a=>!audMuted(a)).map(o=>({o,v:false})),...P.items.filter(vidSnd).map(o=>({o,v:true}))]}
+function schedAud(){stopAud();ACK=null;if(!USE_WA||!AC||!playing)return;const gen=audGen,T0=T,c0=AC.currentTime+.06;ACK={c0,T0,ctx:AC};const bus=busIn()||AC.destination;
+ for(const {o,v} of sndList()){if(o.start+o.dur<=T0)continue;
+  const go=buf=>{if(gen!==audGen||!playing)return;if(!buf){if(!v&&AFAIL[o.mid])elPlay(o,gen,T0,c0);return}
+   const when=Math.max(AC.currentTime+.02,c0+(o.start-T0)),tl=T0+(when-c0),lt=Math.max(0,tl-o.start);const src=placeSnd(AC,buf,o,v,bus,when,lt);if(src)AUD.push(src)};
+  if(ABUF[o.mid])go(ABUF[o.mid]);else getBuf(o.mid).then(go)}}
+/* 最初にどこか触った時点で音の準備を始める（開いてすぐ再生してもズレないように） */
+document.addEventListener("pointerdown",()=>{try{ensureAudio();warmAud()}catch(e){}},{once:true,capture:true});
+/* 動画の音をWebAudioで鳴らしているときは、動画そのものの音は消す（二重に鳴ってズレるのを防ぐ） */
+const vidWA=it=>waOn()&&!!ABUF[it.mid]&&vidSnd(it);
 function syncMedia(){const playing=window.playing0();
  /* スマホは動画の同時読み込み数に上限があるので、今の時間の近くの動画だけ用意して、遠いのは手放す */
  if(!exporting||!exporting.frames)for(const it of P.items)if(it.type==="video"&&EL[it.id]){const near=T>=it.start-3&&T<it.start+it.dur+1.5;let pairNear=false;const nx=P.items.find(o=>o.track===it.track&&PAIRSET.has(o.tin.type)&&Math.abs(o.start-(it.start+it.dur))<.05);if(nx)pairNear=T>=nx.start-3&&T<nx.start+nx.tin.dur+1;if(!near&&!pairNear)relEl(it.id)}
@@ -1256,10 +1271,10 @@ function syncMedia(){const playing=window.playing0();
  for(const [it,kind] of all){const e=elFor(it,kind);if(!e)continue;
   const active=T>=it.start&&T<it.start+it.dur&&!(kind==="video"&&itemHidden(it));
   const isV=kind==="video",target=isV?vidTarget(it,T):it.trimIn+(T-it.start);
-  let fv=1;if(!isV){const lt=T-it.start;if(it.fin>0)fv=Math.min(fv,lt/it.fin);if(it.fout>0)fv=Math.min(fv,(it.dur-lt)/it.fout)}setVol(e,(it.vol??1)*clamp(fv));
-  if(isV){const rt=speedAt(it,(T-it.start)/it.dur);if(Math.abs(e.playbackRate-rt)>.01)try{e.playbackRate=rt}catch(x){}}
+  let fv=1;if(!isV){const lt=T-it.start;if(it.fin>0)fv=Math.min(fv,lt/it.fin);if(it.fout>0)fv=Math.min(fv,(it.dur-lt)/it.fout)}setVol(e,isV&&vidWA(it)?0:(it.vol??1)*clamp(fv));
+  if(isV){let rt=speedAt(it,(T-it.start)/it.dur);if(active&&playing&&!e.paused&&!e.seeking&&e._seekWant==null&&!it.rev){const df=target-e.currentTime;if(Math.abs(df)<.5)rt*=1+clamp(df*1.6,-.2,.2)}if(Math.abs(e.playbackRate-rt)>.004)try{e.playbackRate=rt}catch(x){}}
   if(active&&playing&&isV&&it.rev){if(!e.paused)e.pause();seekEl(e,Math.max(0,target))}
-  else if(active&&playing){if(e.paused){const tg=Math.max(0,target);if(e.readyState>=1){e.currentTime=tg;e._seekWant=null}else e._seekWant=tg;const p=e.play();if(p)p.catch(()=>{})}else if(e._seekWant==null&&Math.abs(e.currentTime-target)>(isV?.35:.12)&&!e.seeking)e.currentTime=target}
+  else if(active&&playing){if(e.paused){const tg=Math.max(0,target);if(e.readyState>=1){e.currentTime=tg;e._seekWant=null}else e._seekWant=tg;const p=e.play();if(p)p.catch(()=>{})}else if(e._seekWant==null&&Math.abs(e.currentTime-target)>(isV?.5:.12)&&!e.seeking)e.currentTime=target}
   else{if(!e.paused)e.pause();if(active&&isV)seekEl(e,Math.max(0,target));else if(isV&&T<it.start)seekEl(e,Math.max(0,vidTarget(it,it.start)));else if(!isV&&T<it.start&&Math.abs(e.currentTime-(it.trimIn||0))>.05&&!e.seeking)e.currentTime=it.trimIn||0;else if(!isV&&active&&PREP){const tg=Math.max(0,target);if(e.readyState>=1){if(Math.abs(e.currentTime-tg)>.04&&!e.seeking)e.currentTime=tg}else e._seekWant=tg}}
   if(isV&&active&&!playing&&!e.seeking&&e.readyState<2){const now=performance.now();if(!e._low)e._low=now;if(now-e._low>700&&now-(e._nudge||0)>900){e._nudge=now;try{e.currentTime=Math.max(0,target)+.001}catch(x){}}}else if(isV)e._low=0}}
 /* 画面の時間は「今スピーカーから出ている音の時間」に合わせる（音の遅れぶん、絵も待つ） */
@@ -1701,7 +1716,7 @@ window.addEventListener("pointermove",e=>{if(!od)return;if(!od.started){if(Math.
  const created=setProp(it,patch);markFast();needDraw=true;if(created){buildTL();updKfBtn()}updMoveVals()});
 window.addEventListener("pointerup",()=>{if(!od)return;const was=od.started;od=null;ovl._k="";if(was){save();buildTL();updKfBtn();if(tool)renderPanel()}needDraw=true});
 window.addEventListener("resize",()=>{ovl._k="";needDraw=true});
-const APPV="v55";
+const APPV="v56";
 async function forceUpdate(){ovShow("最新版を読み込んでいます…");try{await saveNow()}catch(e){}try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}try{const rs=await navigator.serviceWorker.getRegistrations();await Promise.all(rs.map(r=>r.update().catch(()=>{})))}catch(e){}location.replace(location.pathname+"?v="+Date.now())}
 setTimeout(()=>{try{const lv=localStorage.getItem("aura_v");if(lv!==APPV){localStorage.setItem("aura_v",APPV);if(lv)toast("AURA "+APPV+" に更新されました")}}catch(e){}},1500);
 let fastUntil=0,fastPend=false;const fastC=document.createElement("canvas"),fastX=fastC.getContext("2d");let PICK=null;document.addEventListener("pointerdown",e=>{if(!PICK)return;const r=cv.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;e.preventDefault();e.stopImmediatePropagation();const f=PICK;PICK=null;f(clamp((e.clientX-r.left)/r.width),clamp((e.clientY-r.top)/r.height))},true);
@@ -3502,13 +3517,10 @@ async function prepFrame(t){const need=[];for(const k in OVR)delete OVR[k];
   await seekTo(e,f0);if(a<.04||!e.videoWidth)continue;const w=e.videoWidth,h=e.videoHeight,B=SMB[it.id]||(SMB[it.id]={a:document.createElement("canvas"),o:document.createElement("canvas")});
   for(const c of [B.a,B.o]){if(c.width!==w)c.width=w;if(c.height!==h)c.height=h}B.a.getContext("2d").drawImage(e,0,0);
   await seekTo(e,f0+1/fps);const ox=B.o.getContext("2d");ox.globalAlpha=1;ox.drawImage(B.a,0,0);ox.globalAlpha=a;ox.drawImage(e,0,0);ox.globalAlpha=1;OVR[it.id]=B.o}}
-async function mixAudio(dur){const srcs=[...P.audio.filter(a=>!audMuted(a)).map(a=>({o:a,v:false})),...P.items.filter(i=>i.type==="video"&&(i.vol??1)>0&&!itemHidden(i)).map(i=>({o:i,v:true}))];if(!srcs.length)return null;
+async function mixAudio(dur){const srcs=[...P.audio.filter(a=>!audMuted(a)).map(a=>({o:a,v:false})),...P.items.filter(vidSnd).map(i=>({o:i,v:true}))];if(!srcs.length)return null;
  const oc=new OfflineAudioContext(2,Math.ceil(dur*48000),48000),dec=new (window.AudioContext||window.webkitAudioContext)(),cache={};let any=false;const AG=afxOffline(oc,dur);
- for(const {o,v} of srcs){try{let bf=cache[o.mid];if(!bf){const blob=await DB.get("media",o.mid);if(!blob)continue;bf=await dec.decodeAudioData(await blob.arrayBuffer());cache[o.mid]=bf}
-   const rate=v?clamp(avgSpeed(o),.1,8):1;if(v&&(rate>4||rate<.25||o.rev))continue;
-   const s=oc.createBufferSource();s.buffer=bf;s.playbackRate.value=rate;const g=oc.createGain();s.connect(g);g.connect(AG.inp);const vol=clamp(o.vol??1,0,3);
-   g.gain.setValueAtTime(o.fin>0?0:vol,o.start);if(o.fin>0)g.gain.linearRampToValueAtTime(vol,o.start+o.fin);if(o.fout>0){g.gain.setValueAtTime(vol,Math.max(o.start,o.start+o.dur-o.fout));g.gain.linearRampToValueAtTime(0,o.start+o.dur)}
-   s.start(o.start,o.trimIn,o.dur*rate);any=true}catch(e){}}
+ for(const {o,v} of srcs){try{let bf=cache[o.mid]||ABUF[o.mid];if(!bf){const blob=await DB.get("media",o.mid);if(!blob)continue;bf=await dec.decodeAudioData(await blob.arrayBuffer());cache[o.mid]=bf}
+   if(placeSnd(oc,bf,o,v,AG.inp,o.start,0))any=true}catch(e){}}
  try{dec.close()}catch(e){}return any?await oc.startRendering():null}
 /* 音の圧縮(AAC)は最初に「助走」の無音を足すので、書き出すと音が少し遅れる。
    短い「カチッ」を一度だけ圧縮→戻して、何サンプル遅れるか測り、そのぶん音を前にずらす */
